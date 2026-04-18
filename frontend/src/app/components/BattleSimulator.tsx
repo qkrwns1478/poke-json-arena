@@ -103,8 +103,8 @@ const HpBar = ({ condition }: { condition: string }) => {
     }
     return null;
   }
-  const current = parseInt(hpMatch[1])
-  const max = parseInt(hpMatch[2]);
+  const current = parseInt(hpMatch[1]),
+    max = parseInt(hpMatch[2]);
   const percent = Math.max(0, Math.min(100, (current / max) * 100));
   const color = percent > 50 ? "bg-green-500" : percent > 20 ? "bg-yellow-500" : "bg-red-500";
   return (
@@ -154,6 +154,8 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
 
   const [canMegaEvo, setCanMegaEvo] = useState(false);
   const [canZMove, setCanZMove] = useState(false);
+  const [zMoves, setZMoves] = useState<{ move: string; target?: string }[] | null>(null);
+
   const [isMegaChecked, setIsMegaChecked] = useState(false);
   const [isZMoveChecked, setIsZMoveChecked] = useState(false);
 
@@ -191,7 +193,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           setIsTeamPreview(false);
         }
 
-        // --- 필드, 날씨, 사이드 상태 파싱 ---
         if (trimmed.startsWith("|-weather|")) {
           const w = trimmed.split("|")[2];
           if (w === "none") setWeather(null);
@@ -218,7 +219,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           else setOppSideConditions((prev) => prev.filter((c) => c !== condition));
         }
 
-        // 상태 데이터 파싱
         if (trimmed.startsWith("|request|")) {
           try {
             const requestJson = JSON.parse(trimmed.slice(9));
@@ -229,11 +229,19 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             if (requestJson && requestJson.active && requestJson.active[0]) {
               setActiveMoves(requestJson.active[0].moves || []);
               setCanMegaEvo(!!requestJson.active[0].canMegaEvo);
-              setCanZMove(!!requestJson.active[0].canZMove);
+
+              if (requestJson.active[0].canZMove) {
+                setCanZMove(true);
+                setZMoves(requestJson.active[0].canZMove);
+              } else {
+                setCanZMove(false);
+                setZMoves(null);
+              }
             } else {
               setActiveMoves([]);
               setCanMegaEvo(false);
               setCanZMove(false);
+              setZMoves(null);
             }
 
             if (!requestJson.wait) {
@@ -262,14 +270,11 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               return newTeam;
             });
           }
-        }
-
-        // === 폼 체인지(메가진화 등) 파싱하여 상대방 스프라이트 동기화 ===
-        else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
+        } else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const details = parts[3];
-          const name = details.split(",")[0]; // 메가진화 된 새 이름
+          const name = details.split(",")[0];
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
@@ -285,7 +290,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 prev.map((p) => {
                   const reqName = p.ident.substring(p.ident.indexOf(":") + 1).trim();
                   const logName = ident.substring(ident.indexOf(":") + 1).trim();
-                  // 메가진화 접미사 등으로 이름이 살짝 달라져도 적용되도록 startsWith 처리
                   if (logName.startsWith(reqName) || reqName.startsWith(logName)) {
                     return { ...p, details };
                   }
@@ -294,10 +298,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               );
             }
           }
-        }
-
-        // === 메가진화/Z기술 사용 감지 시 제한 트리거 활성화 ===
-        else if (trimmed.startsWith("|-mega|")) {
+        } else if (trimmed.startsWith("|-mega|")) {
           const ident = trimmed.split("|")[2];
           if (mySideIdRef.current && ident.startsWith(mySideIdRef.current)) {
             setHasUsedMega(true);
@@ -307,10 +308,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           if (mySideIdRef.current && ident.startsWith(mySideIdRef.current)) {
             setHasUsedZMove(true);
           }
-        }
-
-        // === 데미지 파싱 시 메가진화 후의 이름(logName)과 원래 이름(reqName)이 달라도 매칭되도록 개선 ===
-        else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|")) {
+        } else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const condition = parts[3];
@@ -414,6 +412,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
     setSelectedAction(null);
     setCanMegaEvo(false);
     setCanZMove(false);
+    setZMoves(null);
     setIsMegaChecked(false);
     setIsZMoveChecked(false);
     setHasUsedMega(false);
@@ -731,7 +730,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-[15px] font-bold text-yellow-400">기술</h3>
                 <div className="flex gap-2">
-                  {canMegaEvo && !hasUsedMega && (
+                  {canMegaEvo && !hasUsedMega && !hasUsedZMove && (
                     <label
                       className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isMegaChecked ? "bg-purple-600 text-white font-bold ring-1 ring-purple-400" : "bg-gray-700 hover:bg-gray-600"}`}
                     >
@@ -745,7 +744,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                       🔮 메가진화
                     </label>
                   )}
-                  {canZMove && !hasUsedZMove && (
+                  {canZMove && !hasUsedMega && !hasUsedZMove && (
                     <label
                       className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isZMoveChecked ? "bg-orange-500 text-white font-bold ring-1 ring-orange-300" : "bg-gray-700 hover:bg-gray-600"}`}
                     >
@@ -766,17 +765,37 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 {activeMoves.length > 0 ? (
                   activeMoves.map((moveObj, idx) => {
                     const isSelected = selectedAction?.type === "move" && selectedAction?.index === idx + 1;
+
+                    const zMoveOption = zMoves ? zMoves[idx] : null;
+                    const isZMoveAvailableForThisSlot = !!zMoveOption;
+
+                    const isDisabled =
+                      moveObj.disabled || !!selectedAction || (isZMoveChecked && !isZMoveAvailableForThisSlot);
+
+                    let displayName = trEngToKor(moveObj.move, "MOVES");
+                    let btnBgClass = isSelected
+                      ? "bg-yellow-600 text-white ring-2 ring-white"
+                      : "bg-red-600 hover:bg-red-700 text-white";
+
+                    if (isZMoveChecked && isZMoveAvailableForThisSlot) {
+                      displayName = trEngToKor(zMoveOption.move, "MOVES");
+                      if (!isSelected) {
+                        btnBgClass =
+                          "bg-orange-500 hover:bg-orange-600 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)] border border-orange-300";
+                      }
+                    }
+
                     return (
                       <button
                         key={idx}
                         onClick={() => sendAction("move", idx + 1)}
-                        disabled={moveObj.disabled || !!selectedAction}
+                        disabled={isDisabled}
                         className={`p-3 rounded font-bold transition text-sm shadow-md flex justify-center items-center relative
-                          ${isSelected ? "bg-yellow-600 text-white ring-2 ring-white" : "bg-red-600 hover:bg-red-700 text-white"}
-                          ${moveObj.disabled || (selectedAction && !isSelected) ? "opacity-50 cursor-not-allowed !bg-gray-600" : ""}
+                          ${btnBgClass}
+                          ${isDisabled || (selectedAction && !isSelected) ? "opacity-50 cursor-not-allowed !bg-gray-600 border-none shadow-none" : ""}
                         `}
                       >
-                        <span className={isSelected ? "opacity-30" : ""}>{trEngToKor(moveObj.move, "MOVES")}</span>
+                        <span className={isSelected ? "opacity-30" : ""}>{displayName}</span>
                         {isSelected && (
                           <span className="absolute inset-0 flex items-center justify-center font-black drop-shadow-md">
                             대기 중
