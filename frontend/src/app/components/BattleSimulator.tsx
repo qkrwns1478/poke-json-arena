@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
 import parseBattleLog from '@/app/utils/BattleLogParser';
+import translator from '@/app/utils/Translator';
 import SAMPLE_TEAMS from '@/data/SampleTeams';
 
 let socket: Socket;
@@ -160,7 +161,7 @@ export default function BattleSimulator() {
           <h2 className="text-xl font-bold mb-2">My Active Pokémon</h2>
           {activePokemon ? (
             <div className="flex items-center gap-4 bg-black p-4 rounded border border-gray-600">
-              <div className="text-lg font-bold text-yellow-400">{activePokemon.details.split(',')[0]}</div>
+              <div className="text-lg font-bold text-yellow-400">{translator(activePokemon.details.split(',')[0])}</div>
               <div className="text-2xl font-mono">HP: {activePokemon.condition}</div>
             </div>
           ) : (
@@ -210,7 +211,7 @@ export default function BattleSimulator() {
                   onClick={() => sendAction('team', idx + 1)}
                   className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded font-bold transition flex justify-between"
                 >
-                  <span>{pokemon.details.split(',')[0]}</span>
+                  <span>{translator(pokemon.details.split(',')[0])}</span>
                   <span className="text-sm opacity-80">선봉 출전</span>
                 </button>
               ))}
@@ -229,7 +230,7 @@ export default function BattleSimulator() {
                       disabled={moveObj.disabled}
                       className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white p-2 rounded font-bold transition text-sm"
                     >
-                      {moveObj.move}
+                      {translator(moveObj.move, false)}
                     </button>
                   ))
                 ) : (
@@ -251,7 +252,7 @@ export default function BattleSimulator() {
                       disabled={pokemon.active || isDead}
                       className={`p-2 rounded font-bold transition flex justify-between ${pokemon.active ? 'bg-green-600 text-white' : isDead ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                     >
-                      <span>{name}</span>
+                      <span>{translator(name)}</span>
                       <span>{pokemon.condition}</span>
                     </button>
                   );

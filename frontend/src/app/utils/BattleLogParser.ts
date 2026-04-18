@@ -1,3 +1,5 @@
+import translator from "./Translator";
+
 const parseBattleLog = (line: string): string | null => {
   const parts = line.split('|');
   if (parts.length < 2) return null;
@@ -9,20 +11,20 @@ const parseBattleLog = (line: string): string | null => {
       return `\n=== 턴 ${parts[2]} ===`;
     case 'switch':
     case 'drag':
-      const pkmn = parts[2].split(': ')[1];
+      const pkmn = translator(parts[2].split(': ')[1]);
       return `▶ [교체] ${pkmn}(이)가 필드에 나왔다!`;
     case 'move':
-      const attacker = parts[2].split(': ')[1];
-      const move = parts[3];
+      const attacker = translator(parts[2].split(': ')[1]);
+      const move = translator(parts[3], false);
       return `⚔️ ${attacker}의 ${move}!`;
     case '-damage':
-      const target = parts[2].split(': ')[1];
+      const target = translator(parts[2].split(': ')[1]);
       return `  ↳ ${target}의 체력이 깎였다!`;
     case '-heal':
-      const healTarget = parts[2].split(': ')[1];
+      const healTarget = translator(parts[2].split(': ')[1]);
       return `  ↳ ${healTarget}의 체력이 회복되었다.`;
     case 'faint':
-      const fainted = parts[2].split(': ')[1];
+      const fainted = translator(parts[2].split(': ')[1]);
       return `💀 ${fainted}(은)는 쓰러졌다...`;
     case '-supereffective':
       return `  💥 효과가 굉장했다!`;
@@ -33,7 +35,7 @@ const parseBattleLog = (line: string): string | null => {
     case '-miss':
       return `  💨 그러나 공격은 빗나갔다!`;
     case 'cant':
-      const cantPkmn = parts[2].split(': ')[1];
+      const cantPkmn = translator(parts[2].split(': ')[1]);
       return `  ❌ ${cantPkmn}(은)는 기술을 쓸 수 없다!`;
     case 'win':
       return `\n🏆 ${parts[2]} 승리!`;
