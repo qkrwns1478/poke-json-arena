@@ -8,6 +8,7 @@ import parseBattleLog from '@/app/utils/BattleLogParser';
 import scTranslator from '@/app/utils/StatusCondition';
 import translator from '@/app/utils/Translator';
 import SAMPLE_TEAMS from '@/data/SampleTeams';
+import '@/assets/sprites/spritesheet-2H5N5RW5.css';
 
 let socket: Socket;
 
@@ -245,15 +246,19 @@ export default function BattleSimulator() {
               <div className="flex flex-col gap-2">
                 {myTeam.map((pokemon, idx) => {
                   const name = pokemon.details.split(',')[0];
+                  const nameLowerCase = name.toLowerCase();
                   const isDead = pokemon.condition === '0 fnt';
                   return (
                     <button 
                       key={idx} 
                       onClick={() => sendAction('switch', idx + 1)} 
                       disabled={pokemon.active || isDead}
-                      className={`p-2 rounded font-bold transition flex justify-between ${pokemon.active ? 'bg-green-600 text-white' : isDead ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                      className={`p-2 rounded font-bold transition flex items-center justify-between ${pokemon.active ? 'bg-green-600 text-white' : isDead ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                     >
-                      <span>{translator(name)}</span>
+                      <div className="flex gap-2">
+                        <span className={`inline-block sprite-${nameLowerCase}`}></span>
+                        <span>{translator(name)}</span>
+                      </div>
                       <span>{scTranslator(pokemon.condition)}</span>
                     </button>
                   );
