@@ -160,7 +160,7 @@ export default function BattleSimulator() {
       <div className="flex-1 flex flex-col h-[80vh] min-h-0 gap-4">
         <div className="bg-gray-800 border border-gray-700 rounded p-4 shrink-0">
           <h2 className="text-xl font-bold mb-2">My Active Pokémon</h2>
-          {activePokemon ? (
+          {!isTeamPreview && activePokemon ? (
             <div className="flex items-center gap-4 bg-black p-4 rounded border border-gray-600">
               <div className="text-lg font-bold text-yellow-400">{translator(activePokemon.details.split(',')[0])}</div>
               <div className="text-2xl font-mono">HP: {scTranslator(activePokemon.condition)}</div>
