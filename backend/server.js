@@ -129,6 +129,10 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
+    // 맵에서 지우기 전에 소켓 룸에서 명시적으로 퇴장시킴
+    const socketInstance = io.sockets.sockets.get(socketId);
+    if (socketInstance) socketInstance.leave(roomId);
+
     delete room.players[socketId];
     playerRoomMap.delete(socketId);
 
@@ -136,15 +140,30 @@ io.on("connection", (socket) => {
       rooms.delete(roomId);
     } else {
       if (room.host === socketId) room.host = Object.keys(room.players)[0]; // 방장 양도
+
+      if (room.status !== "room") {
+        room.status = "room";
+        room.game = null;
+
+        // 남은 플레이어의 준비 상태 및 선택 데이터 초기화
+        const remainingPlayerId = Object.keys(room.players)[0];
+        if (room.players[remainingPlayerId]) {
+          room.players[remainingPlayerId].ready = false;
+          room.players[remainingPlayerId].selectedTeamIndices = null;
+        }
+
+        io.to(roomId).emit("log", `[시스템] 상대방이 나가서 게임이 중단되었습니다. 대기방으로 돌아갑니다.`);
+      } else {
+        io.to(roomId).emit("log", `[시스템] 상대방이 방을 나갔습니다.`);
+      }
+
       io.to(roomId).emit("room-update", getRoomDTO(room));
-      io.to(roomId).emit("log", `[시스템] 상대방이 방을 나갔습니다.`);
     }
     broadcastRoomList(); // 방 목록 갱신
   };
 
   socket.on("leave-room", () => {
     handleLeaveRoom(socket.id);
-    socket.leave(playerRoomMap.get(socket.id));
   });
 
   socket.on("disconnect", () => {
@@ -180,28 +199,30 @@ io.on("connection", (socket) => {
   });
 
   // 6. 선봉 선택 단계 시작 (방장 전용)
-  socket.on('start-selection', () => {
+  socket.on("start-selection", () => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
     if (room.host !== socket.id) return;
 
     const pKeys = Object.keys(room.players);
-    if (pKeys.length !== 2) return socket.emit('log', '[시스템] 2명의 플레이어가 필요합니다.');
-    if (!room.players[pKeys[0]].ready || !room.players[pKeys[1]].ready) return socket.emit('log', '[시스템] 모든 플레이어가 준비되지 않았습니다.');
+    if (pKeys.length !== 2) return socket.emit("log", "[시스템] 2명의 플레이어가 필요합니다.");
+    if (!room.players[pKeys[0]].ready || !room.players[pKeys[1]].ready)
+      return socket.emit("log", "[시스템] 모든 플레이어가 준비되지 않았습니다.");
 
-    room.status = 'selection';
-    const p1Id = pKeys[0], p2Id = pKeys[1];
+    room.status = "selection";
+    const p1Id = pKeys[0],
+      p2Id = pKeys[1];
 
-    io.to(p1Id).emit('selection-start', {
-      myTeam: room.players[p1Id].parsedTeam.map(p => p.species),
-      oppTeam: room.players[p2Id].parsedTeam.map(p => p.species)
+    io.to(p1Id).emit("selection-start", {
+      myTeam: room.players[p1Id].parsedTeam.map((p) => p.species),
+      oppTeam: room.players[p2Id].parsedTeam.map((p) => p.species),
     });
-    io.to(p2Id).emit('selection-start', {
-      myTeam: room.players[p2Id].parsedTeam.map(p => p.species),
-      oppTeam: room.players[p1Id].parsedTeam.map(p => p.species)
+    io.to(p2Id).emit("selection-start", {
+      myTeam: room.players[p2Id].parsedTeam.map((p) => p.species),
+      oppTeam: room.players[p1Id].parsedTeam.map((p) => p.species),
     });
-    io.to(roomId).emit('room-update', getRoomDTO(room));
+    io.to(roomId).emit("room-update", getRoomDTO(room));
     broadcastRoomList();
   });
 
@@ -243,41 +264,42 @@ io.on("connection", (socket) => {
 });
 
 function startGame(room) {
-  room.status = 'battle';
-  io.to(room.id).emit('room-update', getRoomDTO(room));
+  room.status = "battle";
+  io.to(room.id).emit("room-update", getRoomDTO(room));
 
   const pKeys = Object.keys(room.players);
-  const p1Id = pKeys[0], p2Id = pKeys[1];
+  const p1Id = pKeys[0],
+    p2Id = pKeys[1];
   const p1Data = room.players[p1Id];
   const p2Data = room.players[p2Id];
 
   // 선택된 인덱스를 바탕으로 서브 팀 생성
-  const p1SubTeam = p1Data.selectedTeamIndices.map(i => p1Data.parsedTeam[i]);
-  const p2SubTeam = p2Data.selectedTeamIndices.map(i => p2Data.parsedTeam[i]);
+  const p1SubTeam = p1Data.selectedTeamIndices.map((i) => p1Data.parsedTeam[i]);
+  const p2SubTeam = p2Data.selectedTeamIndices.map((i) => p2Data.parsedTeam[i]);
 
   const p1Packed = Teams.pack(p1SubTeam);
   const p2Packed = Teams.pack(p2SubTeam);
 
   const stream = new BattleStreams.BattleStream();
   const streams = BattleStreams.getPlayerStreams(stream);
-  
+
   room.game = { streams, p1Id, p2Id };
 
-  io.to(p1Id).emit('match-found', { sideId: 'p1' });
-  io.to(p2Id).emit('match-found', { sideId: 'p2' });
-  
-  io.to(p1Id).emit('log', '[시스템] 배틀을 시작합니다!');
-  io.to(p2Id).emit('log', '[시스템] 배틀을 시작합니다!');
+  io.to(p1Id).emit("match-found", { sideId: "p1" });
+  io.to(p2Id).emit("match-found", { sideId: "p2" });
+
+  io.to(p1Id).emit("log", "[시스템] 배틀을 시작합니다!");
+  io.to(p2Id).emit("log", "[시스템] 배틀을 시작합니다!");
 
   (async () => {
     for await (const chunk of streams.p1) {
-      if (chunk.trim()) io.to(p1Id).emit('battle-log', chunk);
+      if (chunk.trim()) io.to(p1Id).emit("battle-log", chunk);
     }
   })();
 
   (async () => {
     for await (const chunk of streams.p2) {
-      if (chunk.trim()) io.to(p2Id).emit('battle-log', chunk);
+      if (chunk.trim()) io.to(p2Id).emit("battle-log", chunk);
     }
   })();
 
