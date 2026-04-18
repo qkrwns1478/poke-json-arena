@@ -1025,15 +1025,17 @@ const POKEMON_ENG: string[] = [
   "Terapagos",
   "Pecharunt",
   // === Form ===
+  "Slowking-Galar",
   "Metagross-Mega",
   "Rotom-Heat",
   "Rotom-Wash",
   "Rotom-Frost",
   "Rotom-Fan",
   "Rotom-Mow",
+  "Samurott-Hisui",
+  "Chandelure-Mega",
   "Mimikyu-Bisguised",
   "Mimikyu-Busted",
-  "Chandelure-Mega",
 ];
 
 export default POKEMON_ENG;

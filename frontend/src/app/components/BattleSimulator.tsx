@@ -437,7 +437,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             <div className="text-xs text-red-400 mb-2 font-bold tracking-wider">OPPONENT</div>
             {!isTeamPreview && oppActive ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-gray-700">
-                <div className={`sprite-${oppActive.name.toLowerCase()}`}></div>
+                <div className={`sprite-${oppActive.name.toLowerCase().replace(" ", "-")}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-gray-200">{trEngToKor(oppActive.name)}</div>
                   <HpBar condition={oppActive.condition} />
@@ -456,10 +456,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             {!isTeamPreview && activePokemon ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-blue-900/50">
                 <div
-                  className={`sprite-${activePokemon.details
-                    .split(",")[0]
-                    .toLowerCase()
-                    }`}
+                  className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}
                 ></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-yellow-400">{trEngToKor(activePokemon.details.split(",")[0])}</div>
@@ -516,7 +513,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                   </div>
                 );
               }
-              const nameLower = pkmn.name.toLowerCase();
+              const nameLower = pkmn.name.toLowerCase().replace(" ", "-");
               return (
                 <div
                   key={i}
@@ -639,7 +636,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               <div className="flex flex-col gap-2">
                 {myTeam.map((pokemon, idx) => {
                   const name = pokemon.details.split(",")[0];
-                  const nameLowerCase = name.toLowerCase();
+                  const nameLowerCase = name.toLowerCase().replace(" ", "-");
                   const isDead = pokemon.condition === "0 fnt";
                   return (
                     <button
