@@ -5199,6 +5199,13 @@
   width: 20px;
   height: 24px;
 }
+.sprite-mimikyu-mane {
+  background-image: url("./spritesheet-ULES23CP.webp");
+  background-repeat: no-repeat;
+  background-position: -970px -264px;
+  width: 20px;
+  height: 24px;
+}
 .sprite-bruxish {
   background-image: url("./spritesheet-ULES23CP.webp");
   background-repeat: no-repeat;
@@ -14682,5 +14689,19 @@
   background-repeat: no-repeat;
   background-position: -638px -948px;
   width: 22px;
+  height: 22px;
+}
+.sprite-aldina {
+  background-image: url("./spritesheet-ULES23CP.webp");
+  background-repeat: no-repeat;
+  background-position: -1122px 0px;
+  width: 19px;
+  height: 20px;
+}
+.sprite-almaria {
+  background-image: url("./spritesheet-ULES23CP.webp");
+  background-repeat: no-repeat;
+  background-position: -1122px -20px;
+  width: 28px;
   height: 22px;
 }

@@ -1036,5 +1036,8 @@ const POKEMON_KOR: string[] = [
   "메가샹델라",
   "따라큐",
   "따라큐",
+  "따라큐",
+  "오르디나",
+  "오르마리아",
 ];
 export default POKEMON_KOR;

@@ -1036,6 +1036,9 @@ const POKEMON_ENG: string[] = [
   "Chandelure-Mega",
   "Mimikyu-Bisguised",
   "Mimikyu-Busted",
+  "Mimikyu-Mane",
+  "Aldina",
+  "Almaria",
 ];
 
 export default POKEMON_ENG;
