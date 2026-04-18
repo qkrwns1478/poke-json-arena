@@ -92,7 +92,7 @@ export const TeamEntryManager = ({ onTeamConfirm }: Props) => {
           </div>
 
           <button
-            disabled={selectedIndices.length === 0 || (rawTeam.length >= 6 && selectedIndices.length !== 6)}
+            disabled={selectedIndices.length === 0 || selectedIndices.length > 6}
             onClick={() => onTeamConfirm(rawTeam.filter((_, i) => selectedIndices.includes(i)))}
             className="w-full py-3 bg-green-600 hover:bg-green-700 rounded font-bold disabled:bg-gray-600"
           >

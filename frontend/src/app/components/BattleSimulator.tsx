@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 
+import { TeamEntryManager } from "./TeamEntryManager";
 import { Pokemon } from '@/app/utils/JsonParser';
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
@@ -143,7 +144,8 @@ const HpBar = ({ condition }: { condition: string }) => {
 export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
   const [userId, setUserId] = useState<string>("");
   const [phase, setPhase] = useState<"lobby" | "waiting" | "battle">("lobby");
-  const [teamString, setTeamString] = useState<string>(SAMPLE_TEAMS.team1);
+  const [teamString, setTeamString] = useState<string>("");
+  const [customTeam, setCustomTeam] = useState<Pokemon[] | null>(null);
 
   const [logs, setLogs] = useState<string[]>([]);
   const [myTeam, setMyTeam] = useState<PokemonStatus[]>([]);
@@ -336,10 +338,54 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
   if (phase === "lobby" || phase === "waiting") {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
-        <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-2xl">
+        <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-4xl">
           <h1 className="text-3xl font-bold mb-6 text-center text-yellow-400">Poke JSON Arena</h1>
+          
+          {phase === "lobby" && (
+            <div className="mb-6">
+              {!customTeam ? (
+                // 1. 커스텀 팀이 아직 없을 때: 업로드 창 표시
+                <TeamEntryManager 
+                  onTeamConfirm={(selectedTeam) => {
+                    const customTeamString = selectedTeam.map(p => p.PSformat).join('\n\n');
+                    setTeamString(customTeamString);
+                    setCustomTeam(selectedTeam);
+                    alert("커스텀 팀이 성공적으로 등록되었습니다.");
+                  }} 
+                />
+              ) : (
+                // 2. 커스텀 팀이 등록되어 있을 때: 선택된 팀 요약 정보와 해제 버튼 표시
+                <div className="bg-gray-800 p-4 border border-blue-500 rounded-lg">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-blue-400">
+                      ✔️ 현재 출전 대기 중인 커스텀 팀
+                    </h3>
+                    <button 
+                      onClick={() => {
+                        setCustomTeam(null); // 배열 지우기
+                        setTeamString("");   // 텍스트 비우기
+                      }}
+                      className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition text-white"
+                    >
+                      팀 해제 / 다시 업로드
+                    </button>
+                  </div>
+                  
+                  {/* 선택된 6마리의 이름 뱃지 출력 */}
+                  <div className="flex flex-wrap gap-2">
+                    {customTeam.map((p, idx) => (
+                      <span key={idx} className="bg-blue-900 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold">
+                        {p.nickname || p.species_kor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mb-4">
-            <h2 className="text-xl font-bold mb-2">Team Builder</h2>
+            <h2 className="text-xl font-bold mb-2">팀 빌더</h2>
             <textarea
               value={teamString}
               onChange={(e) => setTeamString(e.target.value)}
@@ -353,14 +399,14 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               disabled={phase === "waiting"}
               className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition"
             >
-              Sample Team 1
+              샘플 팀 1 불러오기
             </button>
             <button
               onClick={() => setTeamString(SAMPLE_TEAMS.team2)}
               disabled={phase === "waiting"}
               className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition"
             >
-              Sample Team 2
+              샘플 팀 2 불러오기
             </button>
           </div>
           {phase === "lobby" ? (
@@ -368,7 +414,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
               onClick={searchMatch}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded text-xl transition"
             >
-              Find Match (Battle!)
+              게임 시작
             </button>
           ) : (
             <div className="w-full bg-yellow-600 text-white font-bold py-4 rounded text-xl text-center animate-pulse">
@@ -430,7 +476,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
 
         {/* 배틀 로그 */}
         <div className="flex-1 flex flex-col border border-gray-700 rounded bg-gray-800 p-4 min-h-0 shadow-lg">
-          <h2 className="text-lg font-bold mb-2 shrink-0">Battle Log</h2>
+          <h2 className="text-lg font-bold mb-2 shrink-0">배틀 로그</h2>
           <div className="flex-1 overflow-y-auto space-y-1 text-sm font-sans bg-black p-4 rounded whitespace-pre-wrap">
             {logs.map((log, i) => (
               <div
@@ -489,7 +535,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             <h3 className="text-[15px] font-bold mb-3 text-blue-400">내 포켓몬 정보</h3>
             <div className="bg-gray-900 p-3 rounded border border-gray-700 text-sm space-y-2">
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
-                <span className="text-gray-400">지닌물건</span>
+                <span className="text-gray-400">지닌 물건</span>
                 <div className="flex items-center gap-1.5">
                   {activePokemon.item ? (
                     <>
@@ -567,7 +613,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
         ) : (
           <div className="flex flex-col gap-4">
             <div className="bg-gray-800 p-4 rounded border border-gray-700">
-              <h3 className="text-[15px] font-bold mb-3 text-yellow-400">기술 (Moves)</h3>
+              <h3 className="text-[15px] font-bold mb-3 text-yellow-400">기술</h3>
               <div className="grid grid-cols-2 gap-2">
                 {activeMoves.length > 0 ? (
                   activeMoves.map((moveObj, idx) => (
@@ -589,7 +635,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             </div>
 
             <div className="bg-gray-800 p-4 rounded border border-gray-700 flex-1">
-              <h3 className="text-[15px] font-bold mb-3 text-green-400">교체 (Switch)</h3>
+              <h3 className="text-[15px] font-bold mb-3 text-green-400">교체</h3>
               <div className="flex flex-col gap-2">
                 {myTeam.map((pokemon, idx) => {
                   const name = pokemon.details.split(",")[0];

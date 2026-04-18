@@ -46,6 +46,7 @@ export interface Pokemon {
 export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
   return jsonData.map((data): Pokemon => {
     // 1. 기본 필드 할당
+    const species_eng = data.species_eng;
     const species_kor = data.species_kor;
     const nickname = data.nickname;
     const types = data.types || [];
@@ -68,21 +69,22 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
     const EVs = data.EVs || { HP: 0, ATK: 0, DEF: 0, SpA: 0, SpD: 0, SPE: 0 };
 
     // 2. PSformat 생성을 위한 영문 번역
-    const species_eng = trKorToEng(species_kor, "POKEMON");
+    // const species_eng = trKorToEng(species_kor, "POKEMON");
     const item_eng = item ? trKorToEng(item, "ITEMS") : null;
     const ability_eng = trKorToEng(ability, "ABILITY");
     const nature_eng = trKorToEng(nature, "NATURE");
     const moves_eng = moves.map((m: string) => trKorToEng(m, "MOVES"));
 
     // 3. PSformat 문자열 조립
-    let psFormat = "";
+    /* let psFormat = "";
 
     // 닉네임 (종족값) @ 지닌물건
     if (nickname && nickname !== species_kor) {
       psFormat += `${nickname} (${species_eng})`;
     } else {
       psFormat += `${species_eng}`;
-    }
+    } */
+    let psFormat = species_eng;
 
     // 성별 표기 (쇼다운 포맷: (M) / (F) / 무성은 생략)
     if (gender === "수컷") psFormat += " (M)";

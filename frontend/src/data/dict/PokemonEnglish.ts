@@ -1024,6 +1024,16 @@ const POKEMON_ENG: string[] = [
   "Iron Crown",
   "Terapagos",
   "Pecharunt",
+  // === Form ===
+  "Metagross-Mega",
+  "Rotom-Heat",
+  "Rotom-Wash",
+  "Rotom-Frost",
+  "Rotom-Fan",
+  "Rotom-Mow",
+  "Mimikyu-Bisguised",
+  "Mimikyu-Busted",
+  "Chandelure-Mega",
 ];
 
 export default POKEMON_ENG;

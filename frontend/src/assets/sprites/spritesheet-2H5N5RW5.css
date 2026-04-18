@@ -5192,6 +5192,13 @@
   width: 20px;
   height: 24px;
 }
+.sprite-mimikyu-busted {
+  background-image: url("./spritesheet-ULES23CP.webp");
+  background-repeat: no-repeat;
+  background-position: -970px -264px;
+  width: 20px;
+  height: 24px;
+}
 .sprite-bruxish {
   background-image: url("./spritesheet-ULES23CP.webp");
   background-repeat: no-repeat;
