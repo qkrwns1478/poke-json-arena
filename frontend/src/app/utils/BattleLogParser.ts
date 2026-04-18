@@ -1,3 +1,4 @@
+import postposition from 'cox-postposition';
 import translator from "./Translator";
 
 const parseBattleLog = (line: string): string | null => {
@@ -5,6 +6,7 @@ const parseBattleLog = (line: string): string | null => {
   if (parts.length < 2) return null;
 
   const command = parts[1];
+  let josa;
 
   switch (command) {
     case 'turn':
@@ -12,7 +14,8 @@ const parseBattleLog = (line: string): string | null => {
     case 'switch':
     case 'drag':
       const pkmn = translator(parts[2].split(': ')[1]);
-      return `▶ [교체] ${pkmn}(이)가 필드에 나왔다!`;
+      josa = postposition.pick(pkmn, '가');
+      return `▶ [교체] ${pkmn}${josa} 필드에 나왔다!`;
     case 'move':
       const attacker = translator(parts[2].split(': ')[1]);
       const move = translator(parts[3], false);
@@ -25,7 +28,8 @@ const parseBattleLog = (line: string): string | null => {
       return `  ↳ ${healTarget}의 체력이 회복되었다.`;
     case 'faint':
       const fainted = translator(parts[2].split(': ')[1]);
-      return `💀 ${fainted}(은)는 쓰러졌다...`;
+      josa = postposition.pick(fainted, '는');
+      return `💀 ${fainted}${josa} 쓰러졌다...`;
     case '-supereffective':
       return `  💥 효과가 굉장했다!`;
     case '-resisted':
@@ -36,7 +40,8 @@ const parseBattleLog = (line: string): string | null => {
       return `  💨 그러나 공격은 빗나갔다!`;
     case 'cant':
       const cantPkmn = translator(parts[2].split(': ')[1]);
-      return `  ❌ ${cantPkmn}(은)는 기술을 쓸 수 없다!`;
+      josa = postposition.pick(cantPkmn, '는');
+      return `  ❌ ${cantPkmn}${josa} 기술을 쓸 수 없다!`;
     case 'win':
       return `\n🏆 ${parts[2]} 승리!`;
     case 'tie':
