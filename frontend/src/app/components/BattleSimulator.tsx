@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 
+import { Pokemon } from '@/app/utils/JsonParser';
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
 import { trEngToKor, trKorToEng, trEngToKeb } from "@/app/utils/Translator";
@@ -43,6 +44,10 @@ interface MoveData {
   move: string;
   id: string;
   disabled?: boolean;
+}
+
+interface BattleSimulatorProps {
+  playerTeam?: Pokemon[];
 }
 
 const getStatusColor = (status: string) => {
@@ -135,7 +140,7 @@ const HpBar = ({ condition }: { condition: string }) => {
   );
 };
 
-export default function BattleSimulator() {
+export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
   const [userId, setUserId] = useState<string>("");
   const [phase, setPhase] = useState<"lobby" | "waiting" | "battle">("lobby");
   const [teamString, setTeamString] = useState<string>(SAMPLE_TEAMS.team1);
