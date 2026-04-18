@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
-import { trEngToKor, trEngToKeb } from "@/app/utils/Translator";
+import { trEngToKor, trKorToEng, trEngToKeb } from "@/app/utils/Translator";
 import SAMPLE_TEAMS from "@/data/SampleTeams";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 

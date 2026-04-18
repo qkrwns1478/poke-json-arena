@@ -17,6 +17,15 @@ export const trEngToKor = (str: string, mode: string = "POKEMON"): string => {
   return res;
 };
 
+export const trKorToEng = (str: string, mode: string = "POKEMON"): string => {
+  const kor: string[] = mode === "POKEMON" ? POKEMON_KOR : mode === "MOVES" ? MOVES_KOR : mode === "ABILITY" ? ABILITY_KOR : ITEMS_KOR;
+  const eng: string[] = mode === "POKEMON" ? POKEMON_ENG : mode === "MOVES" ? MOVES_ENG : mode === "ABILITY" ? ABILITY_ENG : ITEMS_ENG;
+
+  const idx: number = kor.indexOf(str);
+  const res = idx !== -1 ? eng[idx] : str;
+  return res;
+};
+
 export function trEngToKeb(str: string) {
   const idx = ITEMS_ENG.indexOf(str);
   return idx !== -1 ? ITEMS_KEBAB[idx] : str;
