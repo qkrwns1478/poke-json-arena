@@ -14705,3 +14705,15 @@
   width: 28px;
   height: 22px;
 }
+.sprite-icon-mega {
+  background-image: url("./mega.png");
+  background-repeat: no-repeat;
+  width: 14px;
+  height: 14px;
+}
+.sprite-icon-zmove {
+  background-image: url("./zmove.png");
+  background-repeat: no-repeat;
+  width: 14px;
+  height: 14px;
+}

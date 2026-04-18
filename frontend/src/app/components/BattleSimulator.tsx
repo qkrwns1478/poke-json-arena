@@ -741,7 +741,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                         onChange={(e) => setIsMegaChecked(e.target.checked)}
                         disabled={!!selectedAction}
                       />
-                      🔮 메가진화
+                      <span className="sprite-icon-mega" />메가진화
                     </label>
                   )}
                   {canZMove && !hasUsedMega && !hasUsedZMove && (
@@ -755,7 +755,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                         onChange={(e) => setIsZMoveChecked(e.target.checked)}
                         disabled={!!selectedAction}
                       />
-                      🌟 Z기술
+                      <span className="sprite-icon-zmove" />Z기술
                     </label>
                   )}
                 </div>
