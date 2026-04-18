@@ -72,10 +72,19 @@ export const TeamEntryManager = ({ onTeamConfirm }: Props) => {
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="font-bold">{p.nickname || p.species_kor}</span>
-                    <span className="text-xs text-gray-400 ml-2">({p.species_kor})</span>
+                    {p.nickname ? (
+                      <>
+                        <span className="font-bold">{p.nickname || p.species_kor}</span>
+                        <span className="text-xs text-gray-400 ml-2">({p.species_kor})</span>
+                      </>
+                    ) : (
+                      <span className="font-bold">{p.species_kor}</span>
+                    )}
+                    <span className={`ml-2 ${p.gender && (p.gender === "수컷" ? "text-blue-400" : "text-red-400")}`}>
+                      {p.gender === "수컷" ? "♂" : p.gender === "암컷" ? "♀" : ""}
+                    </span>
                   </div>
-                  <div className="text-xs px-2 py-1 rounded bg-gray-700">{p.gender}</div>
+                  <div className={`sprite-${p.species_eng.toLowerCase().replace(" ", "-")}`}></div>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   타입: {p.types.join(", ")} | 특성: {p.ability}

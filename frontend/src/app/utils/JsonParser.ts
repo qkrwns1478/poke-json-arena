@@ -18,6 +18,7 @@ export interface TypeEffectiveness {
 }
 
 export interface Pokemon {
+  species_eng: string;
   species_kor: string;
   nickname?: string;
   types: string[];
@@ -126,6 +127,7 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
 
     // 4. 완성된 Pokemon 객체 리턴
     return {
+      species_eng,
       species_kor,
       nickname,
       types,
