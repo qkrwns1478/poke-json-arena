@@ -1,4 +1,4 @@
-const scTranslator = (str: string): string => {
+export const scTranslator = (str: string): string => {
   const hp: string = str.split(" ")[0];
   const sc: string = str.split(" ")[1];
 
@@ -20,4 +20,21 @@ const scTranslator = (str: string): string => {
   }
 };
 
-export default scTranslator;
+export const getSCKorean = (str: string): string => {
+  switch (str) {
+    case "fnt":
+      return "기절";
+    case "par":
+      return "마비";
+    case "slp":
+      return "잠듦";
+    case "frz":
+      return "얼음";
+    case "brn":
+      return "화상";
+    case "psn":
+      return "독";
+    default:
+      return str;
+  }
+}
