@@ -13,7 +13,6 @@ const translator = (str: string, is_pokemon: boolean = true): string => {
     idx = MOVES_ENG.indexOf(str);
     if (idx != -1) res = MOVES_KOR[idx];
   }
-  // console.log("[LOG] Translator: " + str + " " + res + " " + idx);
   return res;
 };
 

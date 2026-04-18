@@ -85,9 +85,9 @@ export default function BattleSimulator() {
             console.error("Parse error", e);
           }
         } else {
-          const humanReadableLog = parseBattleLog(trimmed);
-          if (humanReadableLog) {
-            newLogs.push(humanReadableLog);
+          const finalBattleLog = parseBattleLog(trimmed);
+          if (finalBattleLog) {
+            newLogs.push(finalBattleLog);
           }
         }
       });
@@ -141,8 +141,8 @@ export default function BattleSimulator() {
             />
           </div>
           <div className="flex gap-4 mb-8">
-            <button onClick={() => setTeamString(SAMPLE_TEAMS.team1)} disabled={phase === 'waiting'} className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition">팀 1 (피카츄, 리자몽)</button>
-            <button onClick={() => setTeamString(SAMPLE_TEAMS.team2)} disabled={phase === 'waiting'} className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition">팀 2 (팬텀, 잠만보)</button>
+            <button onClick={() => setTeamString(SAMPLE_TEAMS.team1)} disabled={phase === 'waiting'} className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition">Sample Team 1</button>
+            <button onClick={() => setTeamString(SAMPLE_TEAMS.team2)} disabled={phase === 'waiting'} className="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded font-bold transition">Sample Team 2</button>
           </div>
           {phase === 'lobby' ? (
             <button onClick={searchMatch} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded text-xl transition">Find Match (Battle!)</button>

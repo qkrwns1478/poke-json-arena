@@ -1,7 +1,6 @@
 const scTranslator = (str: string): string => {
   const hp: string = str.split(" ")[0];
   const sc: string = str.split(" ")[1];
-  console.log(str + " " + hp + " " + sc);
 
   switch (sc) {
     case "fnt":
