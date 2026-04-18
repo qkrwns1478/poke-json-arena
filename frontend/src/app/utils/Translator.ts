@@ -2,17 +2,17 @@ import POKEMON_ENG from "@/data/PokemonEnglish";
 import POKEMON_KOR from "@/data/PokemonKorean";
 import MOVES_ENG from "@/data/MovesEnglish";
 import MOVES_KOR from "@/data/MovesKorean";
+import ABILITY_ENG from "@/data/AbilityEnglish";
+import ABILITY_KOR from "@/data/AbilityKorean";
+import ITEMS_ENG from "@/data/ItemsEnglish";
+import ITEMS_KOR from "@/data/ItemsKorean";
 
-const translator = (str: string, is_pokemon: boolean = true): string => {
-  let res: string = str;
-  let idx: number;
-  if (is_pokemon) {
-    idx = POKEMON_ENG.indexOf(str);
-    if (idx != -1) res = POKEMON_KOR[idx];
-  } else {
-    idx = MOVES_ENG.indexOf(str);
-    if (idx != -1) res = MOVES_KOR[idx];
-  }
+const translator = (str: string, mode: string = "POKEMON"): string => {
+  const eng: string[] = mode === "POKEMON" ? POKEMON_ENG : mode === "MOVES" ? MOVES_ENG : mode === "ABILITY" ? ABILITY_ENG : ITEMS_ENG;
+  const kor: string[] = mode === "POKEMON" ? POKEMON_KOR : mode === "MOVES" ? MOVES_KOR : mode === "ABILITY" ? ABILITY_KOR : ITEMS_KOR;
+
+  const idx: number = eng.indexOf(str);
+  const res = idx !== -1 ? kor[idx] : str;
   return res;
 };
 

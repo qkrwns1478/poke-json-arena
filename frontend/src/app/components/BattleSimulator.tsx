@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
 import translator from "@/app/utils/Translator";
+import kebab from "@/app/utils/KebabCase";
 import SAMPLE_TEAMS from "@/data/SampleTeams";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
@@ -45,7 +46,6 @@ interface MoveData {
   disabled?: boolean;
 }
 
-// 상태이상에 따른 뱃지 색상 반환
 const getStatusColor = (status: string) => {
   switch (status) {
     case "brn":
@@ -64,7 +64,6 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// HP 바 UI 컴포넌트
 const HpBar = ({ condition }: { condition: string }) => {
   if (!condition || condition === "0 fnt") {
     return (
@@ -487,14 +486,25 @@ export default function BattleSimulator() {
             <div className="bg-gray-900 p-3 rounded border border-gray-700 text-sm space-y-2">
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
                 <span className="text-gray-400">지닌물건</span>
-                <span className="font-bold text-yellow-100">
-                  {activePokemon.item ? translator(activePokemon.item, false) : "없음"}
-                </span>
-              </div>
+                <div className="flex items-center gap-1.5">
+                  {activePokemon.item ? (
+                    <>
+                      <span 
+                        className={`inline-block sprite-${kebab(activePokemon.item)} scale-75 origin-left`} 
+                      />
+                      <span className="font-bold text-yellow-100">
+                        {translator(activePokemon.item, "ITEMS")}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-bold text-yellow-100">-</span>
+                  )}
+                </div>
+            </div>
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
                 <span className="text-gray-400">특성</span>
                 <span className="font-bold text-green-300">
-                  {activePokemon.baseAbility ? translator(activePokemon.baseAbility, false) : "알 수 없음"}
+                  {activePokemon.baseAbility ? translator(activePokemon.baseAbility, "ABILITY") : "-"}
                 </span>
               </div>
               {activePokemon.stats && (
@@ -563,7 +573,7 @@ export default function BattleSimulator() {
                       disabled={moveObj.disabled}
                       className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 text-white p-3 rounded font-bold transition text-sm shadow-md"
                     >
-                      {translator(moveObj.move, false)}
+                      {translator(moveObj.move, "MOVES")}
                     </button>
                   ))
                 ) : (

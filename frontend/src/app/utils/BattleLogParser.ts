@@ -18,7 +18,7 @@ const parseBattleLog = (line: string): string | null => {
       return `▶ [교체] ${pkmn}${josa} 필드에 나왔다!`;
     case 'move':
       const attacker = translator(parts[2].split(': ')[1]);
-      const move = translator(parts[3], false);
+      const move = translator(parts[3], "MOVES");
       return `⚔️ ${attacker}의 ${move}!`;
     case '-damage':
       const target = translator(parts[2].split(': ')[1]);
