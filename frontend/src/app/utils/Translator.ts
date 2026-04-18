@@ -1,27 +1,17 @@
-import POKEMON_ENG from "@/data/PokemonEnglish";
-import POKEMON_KOR from "@/data/PokemonKorean";
-import MOVES_ENG from "@/data/MovesEnglish";
-import MOVES_KOR from "@/data/MovesKorean";
-import ABILITY_ENG from "@/data/AbilityEnglish";
-import ABILITY_KOR from "@/data/AbilityKorean";
-import ITEMS_ENG from "@/data/ItemsEnglish";
-import ITEMS_KOR from "@/data/ItemsKorean";
-import ITEMS_KEBAB from "@/data/ItemsKebab";
-import NATURE_ENG from "@/data/NatureEnglish";
-import NATURE_KOR from "@/data/NatureKorean";
+import * as DICT from "@/data/dict";
 
 const getEngList = (mode: string): string[] => {
   switch (mode) {
     case "POKEMON":
-      return POKEMON_ENG;
+      return DICT.POKEMON_ENG;
     case "MOVES":
-      return MOVES_ENG;
+      return DICT.MOVES_ENG;
     case "ABILITY":
-      return ABILITY_ENG;
+      return DICT.ABILITY_ENG;
     case "ITEMS":
-      return ITEMS_ENG;
+      return DICT.ITEMS_ENG;
     case "NATURE":
-      return NATURE_ENG;
+      return DICT.NATURE_ENG;
     default:
       return [];
   }
@@ -30,15 +20,15 @@ const getEngList = (mode: string): string[] => {
 const getKorList = (mode: string): string[] => {
   switch (mode) {
     case "POKEMON":
-      return POKEMON_KOR;
+      return DICT.POKEMON_KOR;
     case "MOVES":
-      return MOVES_KOR;
+      return DICT.MOVES_KOR;
     case "ABILITY":
-      return ABILITY_KOR;
+      return DICT.ABILITY_KOR;
     case "ITEMS":
-      return ITEMS_KOR;
+      return DICT.ITEMS_KOR;
     case "NATURE":
-      return NATURE_KOR;
+      return DICT.NATURE_KOR;
     default:
       return [];
   }
@@ -61,6 +51,6 @@ export const trKorToEng = (str: string, mode: string = "POKEMON"): string => {
 };
 
 export function trEngToKeb(str: string) {
-  const idx = ITEMS_ENG.indexOf(str);
-  return idx !== -1 ? ITEMS_KEBAB[idx] : str;
+  const idx = DICT.ITEMS_ENG.indexOf(str);
+  return idx !== -1 ? DICT.ITEMS_KEBAB[idx] : str;
 }

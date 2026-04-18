@@ -1,0 +1,11 @@
+export { default as POKEMON_ENG } from "./PokemonEnglish";
+export { default as POKEMON_KOR } from "./PokemonKorean";
+export { default as MOVES_ENG } from "./MovesEnglish";
+export { default as MOVES_KOR } from "./MovesKorean";
+export { default as ABILITY_ENG } from "./AbilityEnglish";
+export { default as ABILITY_KOR } from "./AbilityKorean";
+export { default as ITEMS_ENG } from "./ItemsEnglish";
+export { default as ITEMS_KOR } from "./ItemsKorean";
+export { default as ITEMS_KEBAB } from "./ItemsKebab";
+export { default as NATURE_ENG } from "./NatureEnglish";
+export { default as NATURE_KOR } from "./NatureKorean";
