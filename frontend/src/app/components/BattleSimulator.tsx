@@ -6,8 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
-import translator from "@/app/utils/Translator";
-import kebab from "@/app/utils/KebabCase";
+import { trEngToKor, trEngToKeb } from "@/app/utils/Translator";
 import SAMPLE_TEAMS from "@/data/SampleTeams";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
@@ -389,7 +388,7 @@ export default function BattleSimulator() {
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-gray-700">
                 <div className={`sprite-${oppActive.name.toLowerCase()}`}></div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-gray-200">{translator(oppActive.name)}</div>
+                  <div className="font-bold text-gray-200">{trEngToKor(oppActive.name)}</div>
                   <HpBar condition={oppActive.condition} />
                 </div>
               </div>
@@ -412,7 +411,7 @@ export default function BattleSimulator() {
                     }`}
                 ></div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-yellow-400">{translator(activePokemon.details.split(",")[0])}</div>
+                  <div className="font-bold text-yellow-400">{trEngToKor(activePokemon.details.split(",")[0])}</div>
                   <HpBar condition={activePokemon.condition} />
                 </div>
               </div>
@@ -490,10 +489,10 @@ export default function BattleSimulator() {
                   {activePokemon.item ? (
                     <>
                       <span 
-                        className={`inline-block sprite-${kebab(activePokemon.item)} scale-75 origin-left`} 
+                        className={`inline-block sprite-${trEngToKeb(activePokemon.item)} scale-75 origin-left`} 
                       />
                       <span className="font-bold text-yellow-100">
-                        {translator(activePokemon.item, "ITEMS")}
+                        {trEngToKor(activePokemon.item, "ITEMS")}
                       </span>
                     </>
                   ) : (
@@ -504,7 +503,7 @@ export default function BattleSimulator() {
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
                 <span className="text-gray-400">특성</span>
                 <span className="font-bold text-green-300">
-                  {activePokemon.baseAbility ? translator(activePokemon.baseAbility, "ABILITY") : "-"}
+                  {activePokemon.baseAbility ? trEngToKor(activePokemon.baseAbility, "ABILITY") : "-"}
                 </span>
               </div>
               {activePokemon.stats && (
@@ -554,7 +553,7 @@ export default function BattleSimulator() {
                   onClick={() => sendAction("team", idx + 1)}
                   className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded font-bold transition flex justify-between"
                 >
-                  <span>{translator(pokemon.details.split(",")[0])}</span>
+                  <span>{trEngToKor(pokemon.details.split(",")[0])}</span>
                   <span className="text-sm opacity-80">선봉 출전</span>
                 </button>
               ))}
@@ -573,7 +572,7 @@ export default function BattleSimulator() {
                       disabled={moveObj.disabled}
                       className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 text-white p-3 rounded font-bold transition text-sm shadow-md"
                     >
-                      {translator(moveObj.move, "MOVES")}
+                      {trEngToKor(moveObj.move, "MOVES")}
                     </button>
                   ))
                 ) : (
@@ -608,7 +607,7 @@ export default function BattleSimulator() {
                       <div className="flex justify-between items-center w-full">
                         <div className="flex gap-2 items-center">
                           <span className={`inline-block sprite-${nameLowerCase} scale-75 origin-left`}></span>
-                          <span className="text-sm">{translator(name)}</span>
+                          <span className="text-sm">{trEngToKor(name)}</span>
                         </div>
                         <span className="text-xs font-mono">{scTranslator(pokemon.condition)}</span>
                       </div>

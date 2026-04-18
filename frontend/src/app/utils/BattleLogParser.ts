@@ -1,5 +1,5 @@
 import postposition from 'cox-postposition';
-import translator from "./Translator";
+import { trEngToKor } from "./Translator";
 
 const parseBattleLog = (line: string): string | null => {
   const parts = line.split('|');
@@ -13,21 +13,21 @@ const parseBattleLog = (line: string): string | null => {
       return `\n=== 턴 ${parts[2]} ===`;
     case 'switch':
     case 'drag':
-      const pkmn = translator(parts[2].split(': ')[1]);
+      const pkmn = trEngToKor(parts[2].split(': ')[1]);
       josa = postposition.pick(pkmn, '가');
       return `▶ [교체] ${pkmn}${josa} 필드에 나왔다!`;
     case 'move':
-      const attacker = translator(parts[2].split(': ')[1]);
-      const move = translator(parts[3], "MOVES");
+      const attacker = trEngToKor(parts[2].split(': ')[1]);
+      const move = trEngToKor(parts[3], "MOVES");
       return `⚔️ ${attacker}의 ${move}!`;
     case '-damage':
-      const target = translator(parts[2].split(': ')[1]);
+      const target = trEngToKor(parts[2].split(': ')[1]);
       return `  ↳ ${target}의 체력이 깎였다!`;
     case '-heal':
-      const healTarget = translator(parts[2].split(': ')[1]);
+      const healTarget = trEngToKor(parts[2].split(': ')[1]);
       return `  ↳ ${healTarget}의 체력이 회복되었다.`;
     case 'faint':
-      const fainted = translator(parts[2].split(': ')[1]);
+      const fainted = trEngToKor(parts[2].split(': ')[1]);
       josa = postposition.pick(fainted, '는');
       return `💀 ${fainted}${josa} 쓰러졌다...`;
     case '-supereffective':
@@ -39,7 +39,7 @@ const parseBattleLog = (line: string): string | null => {
     case '-miss':
       return `  💨 그러나 공격은 빗나갔다!`;
     case 'cant':
-      const cantPkmn = translator(parts[2].split(': ')[1]);
+      const cantPkmn = trEngToKor(parts[2].split(': ')[1]);
       josa = postposition.pick(cantPkmn, '는');
       return `  ❌ ${cantPkmn}${josa} 기술을 쓸 수 없다!`;
     case 'win':
