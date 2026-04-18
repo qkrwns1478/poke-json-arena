@@ -5,10 +5,10 @@ import { io, Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 
 import { TeamEntryManager } from "./TeamEntryManager";
-import { Pokemon } from '@/app/utils/JsonParser';
+import { Pokemon } from "@/app/utils/JsonParser";
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
-import { trEngToKor, trKorToEng, trEngToKeb } from "@/app/utils/Translator";
+import { trEngToKor, trEngToKeb } from "@/app/utils/Translator";
 import SAMPLE_TEAMS from "@/data/SampleTeams";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
@@ -21,7 +21,6 @@ interface PokemonStats {
   spd: number;
   spe: number;
 }
-
 interface PokemonStatus {
   ident: string;
   details: string;
@@ -31,7 +30,6 @@ interface PokemonStatus {
   item?: string;
   baseAbility?: string;
 }
-
 interface OppPokemon {
   ident: string;
   name: string;
@@ -40,13 +38,11 @@ interface OppPokemon {
   revealed: boolean;
   fainted: boolean;
 }
-
 interface MoveData {
   move: string;
   id: string;
   disabled?: boolean;
 }
-
 interface BattleSimulatorProps {
   playerTeam?: Pokemon[];
 }
@@ -70,22 +66,17 @@ const getStatusColor = (status: string) => {
 };
 
 const HpBar = ({ condition }: { condition: string }) => {
-  if (!condition || condition === "0 fnt") {
+  if (!condition || condition === "0 fnt")
     return (
       <div className="w-full mt-1">
         <div className="h-2.5 w-full bg-gray-700 rounded-full overflow-hidden border border-gray-900"></div>
         <div className="text-xs text-right mt-1 font-mono text-gray-500">0 / 0</div>
       </div>
     );
-  }
-
   const statusMatch = condition.match(/\b(brn|par|psn|tox|slp|frz)\b/);
   const status = statusMatch ? statusMatch[1] : null;
-
-  // e.g., "100/100" or "45/100 psn"
   const hpMatch = condition.match(/(\d+)\/(\d+)/);
   if (!hpMatch) {
-    // 퍼센티지 포맷 (e.g. "45/100") fallback 처리
     const pctMatch = condition.match(/(\d+)\/100/);
     if (pctMatch) {
       const p = parseInt(pctMatch[1]);
@@ -112,12 +103,10 @@ const HpBar = ({ condition }: { condition: string }) => {
     }
     return null;
   }
-
-  const current = parseInt(hpMatch[1]);
+  const current = parseInt(hpMatch[1])
   const max = parseInt(hpMatch[2]);
   const percent = Math.max(0, Math.min(100, (current / max) * 100));
   const color = percent > 50 ? "bg-green-500" : percent > 20 ? "bg-yellow-500" : "bg-red-500";
-
   return (
     <div className="w-full mt-1">
       <div className="h-2.5 w-full bg-gray-700 rounded-full overflow-hidden border border-gray-900">
@@ -156,6 +145,21 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
   const [oppTeam, setOppTeam] = useState<OppPokemon[]>([]);
   const [oppActive, setOppActive] = useState<OppPokemon | null>(null);
 
+  const [weather, setWeather] = useState<string | null>(null);
+  const [fieldConditions, setFieldConditions] = useState<string[]>([]);
+  const [mySideConditions, setMySideConditions] = useState<string[]>([]);
+  const [oppSideConditions, setOppSideConditions] = useState<string[]>([]);
+
+  const [selectedAction, setSelectedAction] = useState<{ type: string; index: number } | null>(null);
+
+  const [canMegaEvo, setCanMegaEvo] = useState(false);
+  const [canZMove, setCanZMove] = useState(false);
+  const [isMegaChecked, setIsMegaChecked] = useState(false);
+  const [isZMoveChecked, setIsZMoveChecked] = useState(false);
+
+  const [hasUsedMega, setHasUsedMega] = useState(false);
+  const [hasUsedZMove, setHasUsedZMove] = useState(false);
+
   const logsEndRef = useRef<HTMLDivElement>(null);
   const mySideIdRef = useRef<string>("");
 
@@ -167,9 +171,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
     socket.on("match-found", () => setPhase("battle"));
 
     socket.on("log", (message: string) => {
-      if (!message.includes("[시스템]")) {
-        setLogs((prev) => [...prev, message]);
-      }
+      if (!message.includes("[시스템]")) setLogs((prev) => [...prev, message]);
     });
 
     socket.on("battle-log", (chunk: string) => {
@@ -180,11 +182,8 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
         const trimmed = line.trim();
         if (!trimmed) return;
 
-        if (trimmed.startsWith("|win|")) {
-          setWinner(trimmed.split("|")[2]);
-        } else if (trimmed === "|tie") {
-          setWinner("Draw");
-        }
+        if (trimmed.startsWith("|win|")) setWinner(trimmed.split("|")[2]);
+        else if (trimmed === "|tie") setWinner("Draw");
 
         if (trimmed.startsWith("|teampreview")) {
           setIsTeamPreview(true);
@@ -192,56 +191,131 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           setIsTeamPreview(false);
         }
 
+        // --- 필드, 날씨, 사이드 상태 파싱 ---
+        if (trimmed.startsWith("|-weather|")) {
+          const w = trimmed.split("|")[2];
+          if (w === "none") setWeather(null);
+          else if (w !== "upkeep") setWeather(w);
+        } else if (trimmed.startsWith("|-fieldstart|")) {
+          const f = trimmed.split("|")[2].replace("move: ", "");
+          setFieldConditions((prev) => [...new Set([...prev, f])]);
+        } else if (trimmed.startsWith("|-fieldend|")) {
+          const f = trimmed.split("|")[2].replace("move: ", "");
+          setFieldConditions((prev) => prev.filter((c) => c !== f));
+        } else if (trimmed.startsWith("|-sidestart|")) {
+          const p = trimmed.split("|");
+          const side = p[2].split(":")[0];
+          const condition = p[3].replace("move: ", "");
+          if (mySideIdRef.current && side === mySideIdRef.current)
+            setMySideConditions((prev) => [...new Set([...prev, condition])]);
+          else setOppSideConditions((prev) => [...new Set([...prev, condition])]);
+        } else if (trimmed.startsWith("|-sideend|")) {
+          const p = trimmed.split("|");
+          const side = p[2].split(":")[0];
+          const condition = p[3].replace("move: ", "");
+          if (mySideIdRef.current && side === mySideIdRef.current)
+            setMySideConditions((prev) => prev.filter((c) => c !== condition));
+          else setOppSideConditions((prev) => prev.filter((c) => c !== condition));
+        }
+
         // 상태 데이터 파싱
         if (trimmed.startsWith("|request|")) {
           try {
             const requestJson = JSON.parse(trimmed.slice(9));
             if (requestJson && requestJson.side) {
-              mySideIdRef.current = requestJson.side.id; // p1 또는 p2
+              mySideIdRef.current = requestJson.side.id;
               if (requestJson.side.pokemon) setMyTeam(requestJson.side.pokemon);
             }
-            if (requestJson && requestJson.active && requestJson.active[0] && requestJson.active[0].moves) {
-              setActiveMoves(requestJson.active[0].moves);
+            if (requestJson && requestJson.active && requestJson.active[0]) {
+              setActiveMoves(requestJson.active[0].moves || []);
+              setCanMegaEvo(!!requestJson.active[0].canMegaEvo);
+              setCanZMove(!!requestJson.active[0].canZMove);
             } else {
               setActiveMoves([]);
+              setCanMegaEvo(false);
+              setCanZMove(false);
+            }
+
+            if (!requestJson.wait) {
+              setSelectedAction(null);
+              setIsMegaChecked(false);
+              setIsZMoveChecked(false);
             }
           } catch (e) {
             console.error("Parse error", e);
           }
-        }
-        // 포켓몬 등장/교체 파싱 (상대 트래킹)
-        else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|")) {
+        } else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|")) {
           const parts = trimmed.split("|");
-          const ident = parts[2]; // ex: p2a: Pikachu
+          const ident = parts[2];
           const details = parts[3];
           const condition = parts[4];
           const name = details.split(",")[0];
           const isFainted = condition === "0 fnt";
-
-          // 상대방 포켓몬 교체
           if (mySideIdRef.current && !ident.startsWith(mySideIdRef.current)) {
             setOppActive({ ident, name, details, condition, revealed: true, fainted: isFainted });
             setOppTeam((prev) => {
               const newTeam = [...prev];
               const existingIdx = newTeam.findIndex((p) => p.name === name);
-              if (existingIdx >= 0) {
-                newTeam[existingIdx] = { ...newTeam[existingIdx], condition, fainted: isFainted };
-              } else if (newTeam.length < 6) {
+              if (existingIdx >= 0) newTeam[existingIdx] = { ...newTeam[existingIdx], condition, fainted: isFainted };
+              else if (newTeam.length < 6)
                 newTeam.push({ ident, name, details, condition, revealed: true, fainted: isFainted });
-              }
               return newTeam;
             });
           }
         }
-        // 데미지/회복 파싱 (실시간 체력바 동기화)
+
+        // === 폼 체인지(메가진화 등) 파싱하여 상대방 스프라이트 동기화 ===
+        else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
+          const parts = trimmed.split("|");
+          const ident = parts[2];
+          const details = parts[3];
+          const name = details.split(",")[0]; // 메가진화 된 새 이름
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppActive((prev) => (prev && prev.ident === ident ? { ...prev, details, name } : prev));
+              setOppTeam((prev) => {
+                const newTeam = [...prev];
+                const existingIdx = newTeam.findIndex((p) => p.ident === ident);
+                if (existingIdx >= 0) newTeam[existingIdx] = { ...newTeam[existingIdx], details, name };
+                return newTeam;
+              });
+            } else {
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = p.ident.substring(p.ident.indexOf(":") + 1).trim();
+                  const logName = ident.substring(ident.indexOf(":") + 1).trim();
+                  // 메가진화 접미사 등으로 이름이 살짝 달라져도 적용되도록 startsWith 처리
+                  if (logName.startsWith(reqName) || reqName.startsWith(logName)) {
+                    return { ...p, details };
+                  }
+                  return p;
+                }),
+              );
+            }
+          }
+        }
+
+        // === 메가진화/Z기술 사용 감지 시 제한 트리거 활성화 ===
+        else if (trimmed.startsWith("|-mega|")) {
+          const ident = trimmed.split("|")[2];
+          if (mySideIdRef.current && ident.startsWith(mySideIdRef.current)) {
+            setHasUsedMega(true);
+          }
+        } else if (trimmed.startsWith("|-zpower|") || trimmed.startsWith("|-zburst|")) {
+          const ident = trimmed.split("|")[2];
+          if (mySideIdRef.current && ident.startsWith(mySideIdRef.current)) {
+            setHasUsedZMove(true);
+          }
+        }
+
+        // === 데미지 파싱 시 메가진화 후의 이름(logName)과 원래 이름(reqName)이 달라도 매칭되도록 개선 ===
         else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const condition = parts[3];
-
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              // 상대 데미지 갱신
               setOppActive((prev) => (prev && prev.ident === ident ? { ...prev, condition } : prev));
               setOppTeam((prev) => {
                 const newTeam = [...prev];
@@ -251,19 +325,17 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 return newTeam;
               });
             } else {
-              // 내 데미지 갱신 (request를 기다리지 않고 바로 UI에 반영)
               setMyTeam((prev) =>
                 prev.map((p) => {
                   const reqName = p.ident.substring(p.ident.indexOf(":") + 1).trim();
                   const logName = ident.substring(ident.indexOf(":") + 1).trim();
-                  return reqName === logName ? { ...p, condition } : p;
+                  const isMatch = logName.startsWith(reqName) || reqName.startsWith(logName);
+                  return isMatch ? { ...p, condition } : p;
                 }),
               );
             }
           }
-        }
-        // 기절 파싱
-        else if (trimmed.startsWith("|faint|")) {
+        } else if (trimmed.startsWith("|faint|")) {
           const ident = trimmed.split("|")[2];
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
@@ -282,23 +354,21 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 prev.map((p) => {
                   const reqName = p.ident.substring(p.ident.indexOf(":") + 1).trim();
                   const logName = ident.substring(ident.indexOf(":") + 1).trim();
-                  return reqName === logName ? { ...p, condition: "0 fnt" } : p;
+                  const isMatch = logName.startsWith(reqName) || reqName.startsWith(logName);
+                  return isMatch ? { ...p, condition: "0 fnt" } : p;
                 }),
               );
             }
           }
         }
 
-        // 배틀 로그 기록
         if (!trimmed.startsWith("|request|")) {
           const finalBattleLog = parseBattleLog(trimmed);
           if (finalBattleLog) newLogs.push(finalBattleLog);
         }
       });
 
-      if (newLogs.length > 0) {
-        setLogs((prev) => [...prev, ...newLogs]);
-      }
+      if (newLogs.length > 0) setLogs((prev) => [...prev, ...newLogs]);
     });
 
     return () => {
@@ -306,9 +376,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
     };
   }, []);
 
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
+  useEffect(() => logsEndRef.current?.scrollIntoView({ behavior: "smooth" }), [logs]);
 
   const searchMatch = () => {
     if (!teamString.trim()) return alert("팀 데이터를 입력해주세요!");
@@ -318,7 +386,15 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
 
   const sendAction = (type: "move" | "switch" | "team", index: number) => {
     if (!socket || winner) return;
-    socket.emit("action", `${type} ${index}`);
+
+    let actionCommand = `${type} ${index}`;
+    if (type === "move") {
+      if (isMegaChecked) actionCommand += " mega";
+      if (isZMoveChecked) actionCommand += " zmove";
+    }
+
+    socket.emit("action", actionCommand);
+    setSelectedAction({ type, index });
   };
 
   const returnToLobby = () => {
@@ -331,6 +407,17 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
     setOppTeam([]);
     setOppActive(null);
     mySideIdRef.current = "";
+    setWeather(null);
+    setFieldConditions([]);
+    setMySideConditions([]);
+    setOppSideConditions([]);
+    setSelectedAction(null);
+    setCanMegaEvo(false);
+    setCanZMove(false);
+    setIsMegaChecked(false);
+    setIsZMoveChecked(false);
+    setHasUsedMega(false);
+    setHasUsedZMove(false);
   };
 
   const activePokemon = myTeam.find((p) => p.active);
@@ -340,41 +427,37 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
       <div className="min-h-screen bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
         <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-4xl">
           <h1 className="text-3xl font-bold mb-6 text-center text-yellow-400">Poke JSON Arena</h1>
-          
+
           {phase === "lobby" && (
             <div className="mb-6">
               {!customTeam ? (
-                // 1. 커스텀 팀이 아직 없을 때: 업로드 창 표시
-                <TeamEntryManager 
+                <TeamEntryManager
                   onTeamConfirm={(selectedTeam) => {
-                    const customTeamString = selectedTeam.map(p => p.PSformat).join('\n\n');
+                    const customTeamString = selectedTeam.map((p) => p.PSformat).join("\n\n");
                     setTeamString(customTeamString);
                     setCustomTeam(selectedTeam);
-                    alert("커스텀 팀이 성공적으로 등록되었습니다.");
-                  }} 
+                  }}
                 />
               ) : (
-                // 2. 커스텀 팀이 등록되어 있을 때: 선택된 팀 요약 정보와 해제 버튼 표시
                 <div className="bg-gray-800 p-4 border border-blue-500 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-blue-400">
-                      ✔️ 현재 출전 대기 중인 커스텀 팀
-                    </h3>
-                    <button 
+                    <h3 className="text-lg font-bold text-blue-400">✔️ 현재 출전 대기 중인 커스텀 팀</h3>
+                    <button
                       onClick={() => {
-                        setCustomTeam(null); // 배열 지우기
-                        setTeamString("");   // 텍스트 비우기
+                        setCustomTeam(null);
+                        setTeamString("");
                       }}
                       className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition text-white"
                     >
                       팀 해제 / 다시 업로드
                     </button>
                   </div>
-                  
-                  {/* 선택된 6마리의 이름 뱃지 출력 */}
                   <div className="flex flex-wrap gap-2">
                     {customTeam.map((p, idx) => (
-                      <span key={idx} className="bg-blue-900 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span
+                        key={idx}
+                        className="bg-blue-900 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold"
+                      >
                         {p.nickname || p.species_kor}
                       </span>
                     ))}
@@ -428,19 +511,48 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8 flex flex-col md:flex-row gap-8">
-      {/* 좌측 영역: 배틀필드 및 로그 */}
       <div className="flex-1 flex flex-col h-[80vh] min-h-0 gap-4">
-        {/* 배틀필드 UI */}
+        {(weather || fieldConditions.length > 0) && (
+          <div className="flex gap-3 bg-gray-800 p-2 border border-gray-700 rounded shadow-md shrink-0">
+            {weather && (
+              <span className="px-3 py-1 bg-yellow-600/30 text-yellow-300 font-semibold text-sm rounded border border-yellow-600/50">
+                ☀️ {weather}
+              </span>
+            )}
+            {fieldConditions.map((fc, i) => (
+              <span
+                key={i}
+                className="px-3 py-1 bg-green-600/30 text-green-300 font-semibold text-sm rounded border border-green-600/50"
+              >
+                🌿 {fc}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row gap-4 shrink-0">
-          {/* 상대방 포켓몬 */}
           <div className="flex-1 bg-gray-800 p-4 border border-gray-700 rounded relative shadow-lg">
-            <div className="text-xs text-red-400 mb-2 font-bold tracking-wider">OPPONENT</div>
+            <div className="text-xs text-red-400 mb-2 font-bold tracking-wider flex justify-between">
+              <span>OPPONENT</span>
+            </div>
             {!isTeamPreview && oppActive ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-gray-700">
                 <div className={`sprite-${oppActive.name.toLowerCase().replace(" ", "-")}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-gray-200">{trEngToKor(oppActive.name)}</div>
                   <HpBar condition={oppActive.condition} />
+                  {oppSideConditions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {oppSideConditions.map((c, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] bg-red-900/50 border border-red-500 text-red-200 px-1.5 py-0.5 rounded"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -450,17 +562,26 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             )}
           </div>
 
-          {/* 내 포켓몬 */}
           <div className="flex-1 bg-gray-800 p-4 border border-gray-700 rounded relative shadow-lg">
             <div className="text-xs text-blue-400 mb-2 font-bold tracking-wider">MY ACTIVE</div>
             {!isTeamPreview && activePokemon ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-blue-900/50">
-                <div
-                  className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}
-                ></div>
+                <div className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-yellow-400">{trEngToKor(activePokemon.details.split(",")[0])}</div>
                   <HpBar condition={activePokemon.condition} />
+                  {mySideConditions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {mySideConditions.map((c, i) => (
+                        <span
+                          key={i}
+                          className="text-[10px] bg-blue-900/50 border border-blue-500 text-blue-200 px-1.5 py-0.5 rounded"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -471,7 +592,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           </div>
         </div>
 
-        {/* 배틀 로그 */}
         <div className="flex-1 flex flex-col border border-gray-700 rounded bg-gray-800 p-4 min-h-0 shadow-lg">
           <h2 className="text-lg font-bold mb-2 shrink-0">배틀 로그</h2>
           <div className="flex-1 overflow-y-auto space-y-1 text-sm font-sans bg-black p-4 rounded whitespace-pre-wrap">
@@ -492,9 +612,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
         </div>
       </div>
 
-      {/* 우측 영역: 컨트롤 및 사이드바 */}
       <div className="w-full md:w-[22rem] flex flex-col gap-4 overflow-y-auto max-h-[80vh] custom-scrollbar">
-        {/* 상대 파티 (엔트리 아이콘) */}
         <div className="bg-gray-800 p-4 rounded border border-gray-700 shadow-lg shrink-0">
           <h3 className="text-[15px] font-bold mb-3 text-red-400 flex justify-between items-center">
             상대방 파티
@@ -503,7 +621,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           <div className="grid grid-cols-3 gap-2">
             {[0, 1, 2, 3, 4, 5].map((i) => {
               const pkmn = oppTeam[i];
-              if (!pkmn) {
+              if (!pkmn)
                 return (
                   <div
                     key={i}
@@ -512,7 +630,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                     <div className="sprite-unknown scale-75 transform"></div>
                   </div>
                 );
-              }
               const nameLower = pkmn.name.toLowerCase().replace(" ", "-");
               return (
                 <div
@@ -526,7 +643,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           </div>
         </div>
 
-        {/* 내 포켓몬 상세 스테이터스 */}
         {!isTeamPreview && activePokemon && (
           <div className="bg-gray-800 p-4 rounded border border-gray-700 shadow-lg shrink-0">
             <h3 className="text-[15px] font-bold mb-3 text-blue-400">내 포켓몬 정보</h3>
@@ -536,18 +652,14 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 <div className="flex items-center gap-1.5">
                   {activePokemon.item ? (
                     <>
-                      <span 
-                        className={`inline-block sprite-${trEngToKeb(activePokemon.item)} scale-75 origin-left`} 
-                      />
-                      <span className="font-bold text-yellow-100">
-                        {trEngToKor(activePokemon.item, "ITEMS")}
-                      </span>
+                      <span className={`inline-block sprite-${trEngToKeb(activePokemon.item)} scale-75 origin-left`} />
+                      <span className="font-bold text-yellow-100">{trEngToKor(activePokemon.item, "ITEMS")}</span>
                     </>
                   ) : (
                     <span className="font-bold text-yellow-100">-</span>
                   )}
                 </div>
-            </div>
+              </div>
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
                 <span className="text-gray-400">특성</span>
                 <span className="font-bold text-green-300">
@@ -580,7 +692,6 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           </div>
         )}
 
-        {/* 컨트롤 패널 (승패, 선봉선택, 교체/기술) */}
         {winner ? (
           <div className="bg-gray-800 p-6 rounded border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)] text-center flex flex-col gap-6 mt-auto">
             <h3 className="text-3xl font-bold text-yellow-400">{winner === "Draw" ? "무승부!" : `${winner} 승리!`}</h3>
@@ -595,34 +706,85 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
           <div className="bg-gray-800 p-4 rounded border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)]">
             <h3 className="text-xl font-bold mb-4 text-yellow-400 text-center">선봉 선택</h3>
             <div className="flex flex-col gap-2">
-              {myTeam.map((pokemon, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => sendAction("team", idx + 1)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded font-bold transition flex justify-between"
-                >
-                  <span>{trEngToKor(pokemon.details.split(",")[0])}</span>
-                  <span className="text-sm opacity-80">선봉 출전</span>
-                </button>
-              ))}
+              {myTeam.map((pokemon, idx) => {
+                const isSelected = selectedAction?.type === "team" && selectedAction?.index === idx + 1;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => sendAction("team", idx + 1)}
+                    disabled={!!selectedAction}
+                    className={`p-3 rounded font-bold transition flex justify-between
+                      ${isSelected ? "bg-yellow-600 text-white ring-2 ring-white" : "bg-purple-600 hover:bg-purple-700 text-white"}
+                      ${selectedAction && !isSelected ? "opacity-50 cursor-not-allowed" : ""}
+                    `}
+                  >
+                    <span>{trEngToKor(pokemon.details.split(",")[0])}</span>
+                    <span className="text-sm opacity-80">{isSelected ? "선택됨..." : "선봉 출전"}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="bg-gray-800 p-4 rounded border border-gray-700">
-              <h3 className="text-[15px] font-bold mb-3 text-yellow-400">기술</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-[15px] font-bold text-yellow-400">기술</h3>
+                <div className="flex gap-2">
+                  {canMegaEvo && !hasUsedMega && (
+                    <label
+                      className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isMegaChecked ? "bg-purple-600 text-white font-bold ring-1 ring-purple-400" : "bg-gray-700 hover:bg-gray-600"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={isMegaChecked}
+                        onChange={(e) => setIsMegaChecked(e.target.checked)}
+                        disabled={!!selectedAction}
+                      />
+                      🔮 메가진화
+                    </label>
+                  )}
+                  {canZMove && !hasUsedZMove && (
+                    <label
+                      className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isZMoveChecked ? "bg-orange-500 text-white font-bold ring-1 ring-orange-300" : "bg-gray-700 hover:bg-gray-600"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={isZMoveChecked}
+                        onChange={(e) => setIsZMoveChecked(e.target.checked)}
+                        disabled={!!selectedAction}
+                      />
+                      🌟 Z기술
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 {activeMoves.length > 0 ? (
-                  activeMoves.map((moveObj, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => sendAction("move", idx + 1)}
-                      disabled={moveObj.disabled}
-                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 text-white p-3 rounded font-bold transition text-sm shadow-md"
-                    >
-                      {trEngToKor(moveObj.move, "MOVES")}
-                    </button>
-                  ))
+                  activeMoves.map((moveObj, idx) => {
+                    const isSelected = selectedAction?.type === "move" && selectedAction?.index === idx + 1;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => sendAction("move", idx + 1)}
+                        disabled={moveObj.disabled || !!selectedAction}
+                        className={`p-3 rounded font-bold transition text-sm shadow-md flex justify-center items-center relative
+                          ${isSelected ? "bg-yellow-600 text-white ring-2 ring-white" : "bg-red-600 hover:bg-red-700 text-white"}
+                          ${moveObj.disabled || (selectedAction && !isSelected) ? "opacity-50 cursor-not-allowed !bg-gray-600" : ""}
+                        `}
+                      >
+                        <span className={isSelected ? "opacity-30" : ""}>{trEngToKor(moveObj.move, "MOVES")}</span>
+                        {isSelected && (
+                          <span className="absolute inset-0 flex items-center justify-center font-black drop-shadow-md">
+                            대기 중
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="col-span-2 text-center text-gray-500 bg-gray-900 p-3 rounded border border-gray-700 italic">
                     기술 대기 중...
@@ -638,30 +800,41 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                   const name = pokemon.details.split(",")[0];
                   const nameLowerCase = name.toLowerCase().replace(" ", "-");
                   const isDead = pokemon.condition === "0 fnt";
+                  const isSelected = selectedAction?.type === "switch" && selectedAction?.index === idx + 1;
+
                   return (
                     <button
                       key={idx}
                       onClick={() => sendAction("switch", idx + 1)}
-                      disabled={pokemon.active || isDead}
-                      className={`p-2 rounded font-bold transition flex flex-col justify-center border shadow-sm
+                      disabled={pokemon.active || isDead || !!selectedAction}
+                      className={`p-2 rounded font-bold transition flex flex-col justify-center border shadow-sm relative overflow-hidden
                         ${
-                          pokemon.active
-                            ? "bg-green-700/50 border-green-500 text-white cursor-default"
-                            : isDead
-                              ? "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60"
-                              : "bg-blue-600/80 border-blue-500 hover:bg-blue-600 text-white"
-                        }`}
+                          isSelected
+                            ? "bg-yellow-600 border-yellow-400 text-white ring-2 ring-white"
+                            : pokemon.active
+                              ? "bg-green-700/50 border-green-500 text-white cursor-default"
+                              : isDead
+                                ? "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60"
+                                : "bg-blue-600/80 border-blue-500 hover:bg-blue-600 text-white"
+                        }
+                        ${selectedAction && !isSelected ? "opacity-50 cursor-not-allowed" : ""}
+                      `}
                     >
-                      <div className="flex justify-between items-center w-full">
+                      <div className={`flex justify-between items-center w-full ${isSelected ? "opacity-30" : ""}`}>
                         <div className="flex gap-2 items-center">
                           <span className={`inline-block sprite-${nameLowerCase} scale-75 origin-left`}></span>
                           <span className="text-sm">{trEngToKor(name)}</span>
                         </div>
                         <span className="text-xs font-mono">{scTranslator(pokemon.condition)}</span>
                       </div>
-                      <div className="w-full px-1">
+                      <div className={`w-full px-1 ${isSelected ? "opacity-30" : ""}`}>
                         <HpBar condition={pokemon.condition} />
                       </div>
+                      {isSelected && (
+                        <span className="absolute inset-0 flex items-center justify-center font-black drop-shadow-md z-10 text-lg">
+                          대기 중
+                        </span>
+                      )}
                     </button>
                   );
                 })}

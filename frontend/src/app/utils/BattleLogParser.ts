@@ -46,6 +46,26 @@ const parseBattleLog = (line: string): string | null => {
       return `\n🏆 ${parts[2]} 승리!`;
     case 'tie':
       return `\n🤝 무승부!`;
+    case '-weather':
+      if (parts[2] === 'none' || parts[2] === 'upkeep') return null;
+      return `☁️ 날씨가 [${parts[2]}] 상태가 되었다!`;
+    case '-fieldstart':
+      return `🌿 필드에 [${parts[2].replace('move: ', '')}] 전개되었다!`;
+    case '-fieldend':
+      return `🌿 [${parts[2].replace('move: ', '')}] 상태가 해제되었다.`;
+    case '-sidestart':
+      return `🧱 ${parts[2].split(':')[0] === 'p1' ? 'P1' : 'P2'} 진영에 [${parts[3].replace('move: ', '')}] 적용!`;
+    case '-sideend':
+      return `🧱 ${parts[2].split(':')[0] === 'p1' ? 'P1' : 'P2'} 진영의 [${parts[3].replace('move: ', '')}] 해제!`;
+    case '-mega':
+      const megaPkmn = trEngToKor(parts[2].split(': ')[1]);
+      josa = postposition.pick(megaPkmn, '가');
+      return `🌟 ${megaPkmn}${josa} 메가진화했다!`;
+    case '-zpower':
+      const zPkmn = trEngToKor(parts[2].split(': ')[1]);
+      josa = postposition.pick(zPkmn, '가');
+      return `🔥 ${zPkmn}${josa} Z파워를 몸에 감쌌다!`;
+      
     default:
       return null;
   }
