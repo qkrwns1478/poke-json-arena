@@ -7,21 +7,55 @@ import ABILITY_KOR from "@/data/AbilityKorean";
 import ITEMS_ENG from "@/data/ItemsEnglish";
 import ITEMS_KOR from "@/data/ItemsKorean";
 import ITEMS_KEBAB from "@/data/ItemsKebab";
+import NATURE_ENG from "@/data/NatureEnglish";
+import NATURE_KOR from "@/data/NatureKorean";
+
+const getEngList = (mode: string): string[] => {
+  switch (mode) {
+    case "POKEMON":
+      return POKEMON_ENG;
+    case "MOVES":
+      return MOVES_ENG;
+    case "ABILITY":
+      return ABILITY_ENG;
+    case "ITEMS":
+      return ITEMS_ENG;
+    case "NATURE":
+      return NATURE_ENG;
+    default:
+      return [];
+  }
+};
+
+const getKorList = (mode: string): string[] => {
+  switch (mode) {
+    case "POKEMON":
+      return POKEMON_KOR;
+    case "MOVES":
+      return MOVES_KOR;
+    case "ABILITY":
+      return ABILITY_KOR;
+    case "ITEMS":
+      return ITEMS_KOR;
+    case "NATURE":
+      return NATURE_KOR;
+    default:
+      return [];
+  }
+};
 
 export const trEngToKor = (str: string, mode: string = "POKEMON"): string => {
-  const eng: string[] = mode === "POKEMON" ? POKEMON_ENG : mode === "MOVES" ? MOVES_ENG : mode === "ABILITY" ? ABILITY_ENG : ITEMS_ENG;
-  const kor: string[] = mode === "POKEMON" ? POKEMON_KOR : mode === "MOVES" ? MOVES_KOR : mode === "ABILITY" ? ABILITY_KOR : ITEMS_KOR;
-
-  const idx: number = eng.indexOf(str);
+  const eng = getEngList(mode);
+  const kor = getKorList(mode);
+  const idx = eng.indexOf(str);
   const res = idx !== -1 ? kor[idx] : str;
   return res;
 };
 
 export const trKorToEng = (str: string, mode: string = "POKEMON"): string => {
-  const kor: string[] = mode === "POKEMON" ? POKEMON_KOR : mode === "MOVES" ? MOVES_KOR : mode === "ABILITY" ? ABILITY_KOR : ITEMS_KOR;
-  const eng: string[] = mode === "POKEMON" ? POKEMON_ENG : mode === "MOVES" ? MOVES_ENG : mode === "ABILITY" ? ABILITY_ENG : ITEMS_ENG;
-
-  const idx: number = kor.indexOf(str);
+  const eng = getEngList(mode);
+  const kor = getKorList(mode);
+  const idx = kor.indexOf(str);
   const res = idx !== -1 ? eng[idx] : str;
   return res;
 };
