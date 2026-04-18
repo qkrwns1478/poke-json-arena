@@ -5,8 +5,9 @@ import { io, Socket } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 
 import { TeamEntryManager } from "./TeamEntryManager";
-import { Pokemon } from '@/app/utils/JsonParser';
+import { Pokemon } from "@/app/utils/JsonParser";
 import parseBattleLog from "@/app/utils/BattleLogParser";
+import { getBattleRecommendation } from "@/app/utils/BattleAI";
 import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
 import { trEngToKor, trKorToEng, trEngToKeb } from "@/app/utils/Translator";
 import SAMPLE_TEAMS from "@/data/SampleTeams";
@@ -340,41 +341,42 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
       <div className="min-h-screen bg-gray-900 text-white p-8 flex flex-col items-center justify-center">
         <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-4xl">
           <h1 className="text-3xl font-bold mb-6 text-center text-yellow-400">Poke JSON Arena</h1>
-          
+
           {phase === "lobby" && (
             <div className="mb-6">
               {!customTeam ? (
                 // 1. 커스텀 팀이 아직 없을 때: 업로드 창 표시
-                <TeamEntryManager 
+                <TeamEntryManager
                   onTeamConfirm={(selectedTeam) => {
-                    const customTeamString = selectedTeam.map(p => p.PSformat).join('\n\n');
+                    const customTeamString = selectedTeam.map((p) => p.PSformat).join("\n\n");
                     setTeamString(customTeamString);
                     setCustomTeam(selectedTeam);
                     alert("커스텀 팀이 성공적으로 등록되었습니다.");
-                  }} 
+                  }}
                 />
               ) : (
                 // 2. 커스텀 팀이 등록되어 있을 때: 선택된 팀 요약 정보와 해제 버튼 표시
                 <div className="bg-gray-800 p-4 border border-blue-500 rounded-lg">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold text-blue-400">
-                      ✔️ 현재 출전 대기 중인 커스텀 팀
-                    </h3>
-                    <button 
+                    <h3 className="text-lg font-bold text-blue-400">✔️ 현재 출전 대기 중인 커스텀 팀</h3>
+                    <button
                       onClick={() => {
                         setCustomTeam(null); // 배열 지우기
-                        setTeamString("");   // 텍스트 비우기
+                        setTeamString(""); // 텍스트 비우기
                       }}
                       className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition text-white"
                     >
                       팀 해제 / 다시 업로드
                     </button>
                   </div>
-                  
+
                   {/* 선택된 6마리의 이름 뱃지 출력 */}
                   <div className="flex flex-wrap gap-2">
                     {customTeam.map((p, idx) => (
-                      <span key={idx} className="bg-blue-900 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span
+                        key={idx}
+                        className="bg-blue-900 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold"
+                      >
                         {p.nickname || p.species_kor}
                       </span>
                     ))}
@@ -455,9 +457,7 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             <div className="text-xs text-blue-400 mb-2 font-bold tracking-wider">MY ACTIVE</div>
             {!isTeamPreview && activePokemon ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-blue-900/50">
-                <div
-                  className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}
-                ></div>
+                <div className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-yellow-400">{trEngToKor(activePokemon.details.split(",")[0])}</div>
                   <HpBar condition={activePokemon.condition} />
@@ -536,18 +536,14 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                 <div className="flex items-center gap-1.5">
                   {activePokemon.item ? (
                     <>
-                      <span 
-                        className={`inline-block sprite-${trEngToKeb(activePokemon.item)} scale-75 origin-left`} 
-                      />
-                      <span className="font-bold text-yellow-100">
-                        {trEngToKor(activePokemon.item, "ITEMS")}
-                      </span>
+                      <span className={`inline-block sprite-${trEngToKeb(activePokemon.item)} scale-75 origin-left`} />
+                      <span className="font-bold text-yellow-100">{trEngToKor(activePokemon.item, "ITEMS")}</span>
                     </>
                   ) : (
                     <span className="font-bold text-yellow-100">-</span>
                   )}
                 </div>
-            </div>
+              </div>
               <div className="flex justify-between items-center pb-1 border-b border-gray-800">
                 <span className="text-gray-400">특성</span>
                 <span className="font-bold text-green-300">
@@ -608,42 +604,64 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            <div className="bg-gray-800 p-4 rounded border border-gray-700">
-              <h3 className="text-[15px] font-bold mb-3 text-yellow-400">기술</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {activeMoves.length > 0 ? (
-                  activeMoves.map((moveObj, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => sendAction("move", idx + 1)}
-                      disabled={moveObj.disabled}
-                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 text-white p-3 rounded font-bold transition text-sm shadow-md"
-                    >
-                      {trEngToKor(moveObj.move, "MOVES")}
-                    </button>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-center text-gray-500 bg-gray-900 p-3 rounded border border-gray-700 italic">
-                    기술 대기 중...
-                  </div>
-                )}
-              </div>
-            </div>
+          <>
+            {(() => {
+              if (isTeamPreview || !activePokemon || !oppActive || winner) return null;
+              const recommendation = getBattleRecommendation(myTeam, activeMoves, oppTeam, oppActive);
 
-            <div className="bg-gray-800 p-4 rounded border border-gray-700 flex-1">
-              <h3 className="text-[15px] font-bold mb-3 text-green-400">교체</h3>
-              <div className="flex flex-col gap-2">
-                {myTeam.map((pokemon, idx) => {
-                  const name = pokemon.details.split(",")[0];
-                  const nameLowerCase = name.toLowerCase().replace(" ", "-");
-                  const isDead = pokemon.condition === "0 fnt";
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => sendAction("switch", idx + 1)}
-                      disabled={pokemon.active || isDead}
-                      className={`p-2 rounded font-bold transition flex flex-col justify-center border shadow-sm
+              return (
+                <div className="bg-gray-800 p-4 rounded border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)] mb-4">
+                  <h3 className="text-[15px] font-bold mb-2 flex items-center gap-2 text-green-400">AI 행동 추천</h3>
+                  <div className="text-sm text-gray-200 bg-gray-900 p-3 rounded leading-relaxed border border-gray-700">
+                    <span className="inline-block px-2 py-1 bg-gray-700 rounded text-yellow-400 font-bold mr-2 mb-1">
+                      {recommendation.action === "MOVE" && recommendation.target
+                        ? `기술: ${recommendation.target}`
+                        : recommendation.action === "SWITCH" && recommendation.target
+                          ? `교체: ${recommendation.target}`
+                          : "상황 대기"}
+                    </span>
+                    <br className="block sm:hidden" />
+                    {recommendation.reason}
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex flex-col gap-4">
+              <div className="bg-gray-800 p-4 rounded border border-gray-700">
+                <h3 className="text-[15px] font-bold mb-3 text-yellow-400">기술</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {activeMoves.length > 0 ? (
+                    activeMoves.map((moveObj, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendAction("move", idx + 1)}
+                        disabled={moveObj.disabled}
+                        className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 text-white p-3 rounded font-bold transition text-sm shadow-md"
+                      >
+                        {trEngToKor(moveObj.move, "MOVES")}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center text-gray-500 bg-gray-900 p-3 rounded border border-gray-700 italic">
+                      기술 대기 중...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 p-4 rounded border border-gray-700 flex-1">
+                <h3 className="text-[15px] font-bold mb-3 text-green-400">교체</h3>
+                <div className="flex flex-col gap-2">
+                  {myTeam.map((pokemon, idx) => {
+                    const name = pokemon.details.split(",")[0];
+                    const nameLowerCase = name.toLowerCase().replace(" ", "-");
+                    const isDead = pokemon.condition === "0 fnt";
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => sendAction("switch", idx + 1)}
+                        disabled={pokemon.active || isDead}
+                        className={`p-2 rounded font-bold transition flex flex-col justify-center border shadow-sm
                         ${
                           pokemon.active
                             ? "bg-green-700/50 border-green-500 text-white cursor-default"
@@ -651,23 +669,24 @@ export default function BattleSimulator({ playerTeam }: BattleSimulatorProps) {
                               ? "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60"
                               : "bg-blue-600/80 border-blue-500 hover:bg-blue-600 text-white"
                         }`}
-                    >
-                      <div className="flex justify-between items-center w-full">
-                        <div className="flex gap-2 items-center">
-                          <span className={`inline-block sprite-${nameLowerCase} scale-75 origin-left`}></span>
-                          <span className="text-sm">{trEngToKor(name)}</span>
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex gap-2 items-center">
+                            <span className={`inline-block sprite-${nameLowerCase} scale-75 origin-left`}></span>
+                            <span className="text-sm">{trEngToKor(name)}</span>
+                          </div>
+                          <span className="text-xs font-mono">{scTranslator(pokemon.condition)}</span>
                         </div>
-                        <span className="text-xs font-mono">{scTranslator(pokemon.condition)}</span>
-                      </div>
-                      <div className="w-full px-1">
-                        <HpBar condition={pokemon.condition} />
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="w-full px-1">
+                          <HpBar condition={pokemon.condition} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
