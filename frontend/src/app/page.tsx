@@ -1,9 +1,9 @@
-import BattleSimulator from "@/app/components/BattleSimulator";
+import GameManager from "@/app/components/GameManager";
 
 export default function Home() {
   return (
     <main>
-      <BattleSimulator />
+      <GameManager />
     </main>
   );
 }
