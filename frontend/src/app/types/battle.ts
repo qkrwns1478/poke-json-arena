@@ -1,5 +1,3 @@
-import { Pokemon } from "@/app/utils/JsonParser";
-
 export interface RoomSettings {
   format: number;
   allowMega: boolean;
