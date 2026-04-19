@@ -594,6 +594,8 @@ export default function GameManager() {
         oppTeam={oppTeam}
         oppActive={oppActive}
         activeMoves={activeMoves}
+        usedMega={hasUsedMega}
+        usedZMove={hasUsedZMove}
       />
     </>
   );

@@ -24,6 +24,8 @@ interface ChatProps {
   oppTeam?: OppPokemon[];
   oppActive?: OppPokemon | null;
   activeMoves?: MoveData[];
+  usedMega?: boolean;
+  usedZMove?: boolean;
 }
 
 export default function ChatInterface({
@@ -33,8 +35,11 @@ export default function ChatInterface({
   oppFullTeam,
   mySelection,
   myTeam,
+  oppTeam,
   oppActive,
   activeMoves,
+  usedMega = false,
+  usedZMove = false,
 }: ChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -104,13 +109,13 @@ export default function ChatInterface({
             .split(",")
             .map((name: string) => trEngToKor(name.trim(), "POKEMON"))
             .join(", ");
-            
+
           displayMsg = `💡 추천: ${translatedRec}\n📝 이유: ${result.reason}`;
         } else if (phase === "battle") {
           // move인지 switch인지에 따라 카테고리를 다르게 번역
           const category = result.action_type === "move" ? "MOVES" : "POKEMON";
           const translatedParam = trEngToKor(result.parameter, category);
-          
+
           displayMsg = `💡 추천 행동: [${result.action_type === "move" ? "기술" : "교체"}] ${translatedParam}\n📝 이유: ${result.reason}`;
         } else {
           displayMsg = result.message || JSON.stringify(result);
@@ -140,13 +145,9 @@ export default function ChatInterface({
 
   const buildLeadContext = () => {
     // 유저가 이미 선택한 포켓몬이 있는지 확인
-    const selectedPokemon = mySelection && myFullTeam 
-      ? mySelection.map(idx => myFullTeam[idx]) 
-      : [];
-      
-    const availablePool = selectedPokemon.length > 0 
-      ? selectedPokemon.join(", ") 
-      : myFullTeam?.join(", ");
+    const selectedPokemon = mySelection && myFullTeam ? mySelection.map((idx) => myFullTeam[idx]) : [];
+
+    const availablePool = selectedPokemon.length > 0 ? selectedPokemon.join(", ") : myFullTeam?.join(", ");
 
     return `규칙: ${roomData?.settings?.format}마리 선택
 상대 전체 파티: ${oppFullTeam?.join(", ")}
@@ -162,11 +163,22 @@ export default function ChatInterface({
     setLoading(true);
 
     try {
-      const rec = recommendBattleAction(myTeam, oppActive, activeMoves);
+      const rec = recommendBattleAction(myTeam, oppActive, activeMoves, oppTeam || [], {
+        canMegaEvo: roomData?.settings?.allowMega ?? false,
+        canZMove: roomData?.settings?.allowZMove ?? false,
+        usedMega: usedMega,
+        usedZMove: usedZMove,
+        isNoLimit: roomData?.settings?.noLimit ?? false,
+      });
+
       const category = rec.action_type === "move" ? "MOVES" : "POKEMON";
       const translatedParam = trEngToKor(rec.parameter, category);
-      const displayMsg =
-        `💡 추천 행동: [${rec.action_type === "move" ? "기술" : "교체"}] ${translatedParam}\n📝 이유: ${rec.reason}`;
+
+      const actionPrefix = rec.action_type === "move" ? "기술" : "교체";
+      const megaZTag = rec.useMega ? " 💫(메가진화)" : rec.useZMove ? " 🌟(Z기술)" : "";
+
+      const displayMsg = `💡 추천 행동: [${actionPrefix}] ${translatedParam}${megaZTag}\n📝 이유: ${rec.reason}`;
+
       setMessages((prev) => [...prev, { role: "assistant", content: displayMsg }]);
     } catch (error) {
       console.error("[BattleRecommender] 오류 발생:", error);
