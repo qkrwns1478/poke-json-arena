@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bot, Loader2, MessageCircle, X } from "lucide-react";
-import { Generations, calculate, Move, Pokemon as SmogonPokemon } from "@smogon/calc";
+import { Generations, calculate, Move } from "@smogon/calc";
+import { createPokemon } from "@/app/utils/PokemonFactory";
 import { trKorToEng } from "@/app/utils/Translator";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
 import { trEngToKor } from "@/app/utils/Translator";
@@ -53,8 +54,8 @@ export default function ChatInterface({
 
       const moveEng = trKorToEng(moveNameKor.trim(), "MOVES") || moveNameKor.trim();
 
-      const smogonAttacker = new SmogonPokemon(gen, attackerName);
-      const smogonDefender = new SmogonPokemon(gen, defenderName);
+      const smogonAttacker = createPokemon(gen, attackerName, { level: 50 });
+      const smogonDefender = createPokemon(gen, defenderName, { level: 50 });
       const attackMove = new Move(gen, moveEng);
 
       const result = calculate(gen, smogonAttacker, smogonDefender, attackMove);
@@ -95,21 +96,6 @@ export default function ChatInterface({
 
       if (res.ok) {
         const result = data.result;
-
-        // Battle Phase 무효 데미지 검증
-        if (phase === "battle" && result.action_type === "move" && myTeam && oppActive) {
-          const myActive = myTeam.find((p) => p.active);
-
-          if (myActive) {
-            const zeroDmg = isDamageZero(result.parameter, myActive, oppActive);
-
-            if (zeroDmg && retryCount < 2) {
-              console.log(`[AI 재요청] ${result.parameter} 기술은 무효 처리됨. 다시 추천 받습니다.`);
-              const retryMsg = `'${result.parameter}' 기술은 상대 포켓몬(${oppActive.name})에게 효과가 없습니다(데미지 0). 타입 상성을 고려해서 다른 행동을 추천해주세요.`;
-              return handleRequest(retryMsg, hiddenContext, retryCount + 1);
-            }
-          }
-        }
 
         let displayMsg = "";
         if (phase === "selection") {

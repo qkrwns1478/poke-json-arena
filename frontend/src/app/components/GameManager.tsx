@@ -346,65 +346,6 @@ export default function GameManager() {
   };
 
   // Render Router
-  /* if (phase === "lobby")
-    return (
-      <LobbyPhase
-        availableRooms={availableRooms}
-        onCreateRoom={createRoom}
-        onJoinRoom={joinRoom}
-        onRefresh={requestRoomList}
-      />
-    );
-  if (phase === "room" && roomData)
-    return (
-      <RoomPhase
-        roomData={roomData}
-        socketId={socket.current ? socket.current.id : ""}
-        onLeave={leaveRoom}
-        onSubmitTeam={submitTeam}
-        onToggleReady={toggleReady}
-        onStartSelection={startSelection}
-      />
-    );
-  if (phase === "selection" && roomData)
-    return (
-      <SelectionPhase
-        roomData={roomData}
-        myFullTeam={myFullTeam}
-        oppFullTeam={oppFullTeam}
-        mySelection={mySelection}
-        setMySelection={setMySelection}
-        onSubmitSelection={submitSelection}
-      />
-    );
-
-  return (
-    <BattlePhase
-      roomData={roomData}
-      myTeam={myTeam}
-      oppTeam={oppTeam}
-      oppActive={oppActive}
-      logs={logs}
-      winner={winner}
-      weather={weather}
-      fieldConditions={fieldConditions}
-      mySideConditions={mySideConditions}
-      oppSideConditions={oppSideConditions}
-      activeMoves={activeMoves}
-      canMegaEvo={canMegaEvo}
-      canZMove={canZMove}
-      zMoves={zMoves}
-      isMegaChecked={isMegaChecked}
-      setIsMegaChecked={setIsMegaChecked}
-      isZMoveChecked={isZMoveChecked}
-      setIsZMoveChecked={setIsZMoveChecked}
-      hasUsedMega={hasUsedMega}
-      hasUsedZMove={hasUsedZMove}
-      selectedAction={selectedAction}
-      sendAction={sendAction}
-      onLeave={leaveRoom}
-    />
-  ); */
   return (
     <>
       {phase === "lobby" && (

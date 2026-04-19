@@ -9,6 +9,12 @@ const groq = new OpenAI({
 export async function POST(req: Request) {
   try {
     const { messages, phase } = await req.json();
+    if (!Array.isArray(messages) || (phase !== "selection" && phase !== "battle")) {
+      return NextResponse.json(
+        { error: "Invalid request payload" },
+        { status: 400 }
+      );
+    }
 
     let systemPrompt = `당신은 포켓몬 배틀을 도와주는 AI 어시스턴트입니다. 
 반드시 아래의 순수 JSON 형식으로만 응답하세요.
@@ -50,7 +56,16 @@ export async function POST(req: Request) {
 
     const reply = chatCompletion.choices[0]?.message?.content || "{}";
 
-    const parsedReply = JSON.parse(reply);
+    let parsedReply: unknown;
+    try {
+      parsedReply = JSON.parse(reply);
+    } catch (e) {
+      console.error("Groq JSON parse error. Raw reply:", reply);
+      return NextResponse.json(
+        { error: "모델 응답을 JSON으로 해석하지 못했습니다." },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ result: parsedReply });
   } catch (error) {
