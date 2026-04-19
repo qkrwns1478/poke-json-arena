@@ -30,7 +30,7 @@ const HpBar = ({ condition }: { condition: string }) => {
         <div className="h-2.5 w-full bg-gray-700 rounded-full border border-gray-900"></div>
         <div className="flex items-center justify-between mt-1 min-h-[20px]">
           <span />
-          <div className="text-xs font-mono text-red-500 font-bold">FNT</div>
+          <div className="text-xs font-mono text-red-500 font-bold">기절</div>
         </div>
       </div>
     );
@@ -52,7 +52,7 @@ const HpBar = ({ condition }: { condition: string }) => {
   return (
     <div className="w-full mt-1">
       <div className="h-2.5 w-full bg-gray-700 rounded-full overflow-hidden border border-gray-900">
-        <div className={`h-full ${color}`} style={{ width: `${percent}%` }}></div>
+        <div className={`h-full transition-all duration-500 ease-out ${color}`} style={{ width: `${percent}%` }}></div>
       </div>
       <div className="flex items-center justify-between mt-1 min-h-[20px]">
         {status ? (
@@ -238,7 +238,7 @@ export default function BattlePhase(props: Props) {
           <h3 className="text-[15px] font-bold mb-3 text-red-400 flex justify-between items-center">
             상대방 파티{" "}
             <span className="text-xs text-gray-500 font-normal">
-              발견됨: {oppTeam.length}/{roomData?.settings?.format}
+              {oppTeam.length}/{roomData?.settings?.format}
             </span>
           </h3>
           <div className="grid grid-cols-3 gap-2">
@@ -411,7 +411,6 @@ export default function BattlePhase(props: Props) {
                           <span className={`inline-block sprite-${toSpriteKey(name)} scale-75 origin-left`}></span>
                           <span className="text-sm">{trEngToKor(name)}</span>
                         </div>
-                        <span className="text-xs">{scTranslator(p.condition)}</span>
                       </div>
                       <div className="w-full px-1">
                         <HpBar condition={p.condition} />
