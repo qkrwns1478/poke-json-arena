@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const customPath = path.resolve(__dirname, '../shared/custom.json');
+const customPath = path.resolve(__dirname, '../frontend/src/data/custom.json');
 const customData = JSON.parse(fs.readFileSync(customPath, 'utf8'));
 
 for (const [id, data] of Object.entries(customData)) {

@@ -6,6 +6,7 @@ import { Generations, calculate, Move, Pokemon as SmogonPokemon } from "@smogon/
 import { trKorToEng } from "@/app/utils/Translator";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
 import { trEngToKor } from "@/app/utils/Translator";
+import { recommendBattleAction } from "@/app/utils/BattleRecommender";
 
 type Message = {
   role: "user" | "assistant";
@@ -31,7 +32,6 @@ export default function ChatInterface({
   oppFullTeam,
   mySelection,
   myTeam,
-  oppTeam,
   oppActive,
   activeMoves,
 }: ChatProps) {
@@ -168,19 +168,26 @@ export default function ChatInterface({
 요청: 위 후보 중 상대의 예상 선봉을 찌르거나 기점을 잡기 가장 좋은 '첫 번째 출전 포켓몬(선봉)' 딱 1마리만 추천해주세요.`;
   };
 
-  const buildBattleContext = () => {
-    const myActive = myTeam?.find((p) => p.active);
-    return `내 활성 포켓몬: ${myActive?.details?.split(",")[0]} (상태: ${myActive?.condition})
-내 파티: ${myTeam
-      ?.filter((p) => !p.active)
-      .map((p) => `${p.details.split(",")[0]}(${p.condition})`)
-      .join(", ")}
-사용 가능 기술: ${activeMoves?.map((m) => m.move).join(", ")}
-상대 활성 포켓몬: ${oppActive?.name} (상태: ${oppActive?.condition})
-확인된 상대 파티: ${oppTeam
-      ?.filter((p) => p.name !== oppActive?.name)
-      .map((p) => `${p.name}(${p.condition})`)
-      .join(", ")}`;
+  const handleBattleRecommend = () => {
+    if (loading || !myTeam || !oppActive || !activeMoves) return;
+
+    const userMessage: Message = { role: "user", content: "다음 행동 추천해줘" };
+    setMessages((prev) => [...prev, userMessage]);
+    setLoading(true);
+
+    try {
+      const rec = recommendBattleAction(myTeam, oppActive, activeMoves);
+      const category = rec.action_type === "move" ? "MOVES" : "POKEMON";
+      const translatedParam = trEngToKor(rec.parameter, category);
+      const displayMsg =
+        `💡 추천 행동: [${rec.action_type === "move" ? "기술" : "교체"}] ${translatedParam}\n📝 이유: ${rec.reason}`;
+      setMessages((prev) => [...prev, { role: "assistant", content: displayMsg }]);
+    } catch (error) {
+      console.error("[BattleRecommender] 오류 발생:", error);
+      setMessages((prev) => [...prev, { role: "assistant", content: "추천 계산 중 오류가 발생했습니다." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (phase === "lobby" || phase === "room") return null;
@@ -239,7 +246,7 @@ export default function ChatInterface({
               )}
               {phase === "battle" && (
                 <button
-                  onClick={() => handleRequest("다음 행동 추천해줘", buildBattleContext())}
+                  onClick={handleBattleRecommend}
                   className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-full hover:bg-red-200 transition"
                 >
                   🎯 다음 행동 추천
