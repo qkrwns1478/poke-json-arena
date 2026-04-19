@@ -135,8 +135,14 @@ export default function GameManager() {
               if (requestJson.side.pokemon) {
                 setMyTeam((prev) =>
                   requestJson.side.pokemon.map((newPkmn: any) => {
-                    const existing = prev.find((p) => p.ident === newPkmn.ident);
-                    return { ...newPkmn, boosts: existing?.boosts || {}, multipliers: existing?.multipliers || {} };
+                    const newName = getIdentName(newPkmn.ident || "");
+                    const existing = prev.find((p) => getIdentName(p.ident || "") === newName);
+                    
+                    return { 
+                      ...newPkmn, 
+                      boosts: existing?.boosts || {}, 
+                      multipliers: existing?.multipliers || {} 
+                    };
                   })
                 );
               }
@@ -180,7 +186,15 @@ export default function GameManager() {
                   // 기존 포켓몬이 다시 나올 때 랭크업 초기화 (boosts: {})
                   newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt"), boosts: {} };
                 } else if (newTeam.length < 6) {
-                  newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt"), boosts: {} });
+                  newTeam.push({
+                    ident,
+                    name,
+                    details,
+                    condition,
+                    revealed: true,
+                    fainted: condition.includes("fnt"),
+                    boosts: {},
+                  });
                 }
                 return newTeam;
               });
@@ -190,8 +204,13 @@ export default function GameManager() {
                   const reqName = getIdentName(p.ident);
                   const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
                   // 내 포켓몬이 교체되어 필드에 새로 나왔다면 랭크업 초기화
-                  return { ...p, active: isActive, condition: isActive ? condition : p.condition, boosts: isActive ? {} : p.boosts };
-                })
+                  return {
+                    ...p,
+                    active: isActive,
+                    condition: isActive ? condition : p.condition,
+                    boosts: isActive ? {} : p.boosts,
+                  };
+                }),
               );
             }
           }
@@ -347,24 +366,29 @@ export default function GameManager() {
         }
 
         // 고대활성, 쿼크차지 등 능력치 배율 증가 시작
-        else if (trimmed.startsWith("|-start|")) {
+        else if (trimmed.startsWith("|-start|") || trimmed.startsWith("|-activate|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
-          const effect = parts[3];
+          const effect = (parts[3] || "").toLowerCase();
           const logIdentName = getIdentName(ident);
 
-          if (effect.includes("Protosynthesis") || effect.includes("Quark Drive")) {
-            const stat = parts[4]; // 활성화된 스탯 (atk, def, spa, spd, spe)
-            if (stat) {
-              const val = stat === "spe" ? 1.5 : 1.3; // 스피드만 1.5배, 나머지는 1.3배
-              
-              const applyMultiplier = (prevTeam: any[]) => prevTeam.map((p) => {
-                const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
-                if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                  return { ...p, multipliers: { ...p.multipliers, [stat]: val } };
-                }
-                return p;
-              });
+          if (effect.includes("protosynthesis") || effect.includes("quarkdrive")) {
+            // 효과 텍스트나 파라미터에서 스탯(atk, def, spa, spd, spe) 추출
+            const statMatch =
+              effect.match(/(atk|def|spa|spd|spe)/) || (parts[4] || "").toLowerCase().match(/(atk|def|spa|spd|spe)/);
+
+            if (statMatch) {
+              const stat = statMatch[1];
+              const val = stat === "spe" ? 1.5 : 1.3;
+
+              const applyMultiplier = (prevTeam: any[]) =>
+                prevTeam.map((p) => {
+                  const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                  if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                    return { ...p, multipliers: { ...p.multipliers, [stat]: val } };
+                  }
+                  return p;
+                });
 
               if (mySideIdRef.current) {
                 if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyMultiplier);
@@ -372,23 +396,24 @@ export default function GameManager() {
               }
             }
           }
-        } 
-        
-        // 능력치 배율 증가 종료 (날씨/필드 종료, 교체 등)
+        }
+
+        // 능력치 배율 증가 종료
         else if (trimmed.startsWith("|-end|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
-          const effect = parts[3];
+          const effect = (parts[3] || "").toLowerCase();
           const logIdentName = getIdentName(ident);
 
-          if (effect.includes("Protosynthesis") || effect.includes("Quark Drive")) {
-            const clearMultiplier = (prevTeam: any[]) => prevTeam.map((p) => {
-              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
-              if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                return { ...p, multipliers: {} }; // 효과가 끝나면 배율 초기화
-              }
-              return p;
-            });
+          if (effect.includes("protosynthesis") || effect.includes("quarkdrive")) {
+            const clearMultiplier = (prevTeam: any[]) =>
+              prevTeam.map((p) => {
+                const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                  return { ...p, multipliers: {} };
+                }
+                return p;
+              });
 
             if (mySideIdRef.current) {
               if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearMultiplier);
@@ -397,26 +422,28 @@ export default function GameManager() {
           }
         }
 
-        // 곡예 등 특정 특성 발동 캐치
-        else if (trimmed.startsWith("|-ability|")) {
+        // 곡예 (Unburden) 등 도구 소모 특성
+        else if (trimmed.startsWith("|-enditem|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
-          const ability = parts[3];
           const logIdentName = getIdentName(ident);
 
-          if (ability === "Unburden") { // 곡예 발동 시 스피드 2배
-            const applyUnburden = (prevTeam: any[]) => prevTeam.map((p) => {
+          const applyUnburden = (prevTeam: any[]) =>
+            prevTeam.map((p) => {
               const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                return { ...p, multipliers: { ...p.multipliers, spe: 2 } };
+                // baseAbility가 없을 경우 details(이름, 성별 등)나 ability로 풀스캔
+                const ability = (p.baseAbility || p.ability || p.details || "").toLowerCase();
+                if (ability.includes("unburden") || ability.includes("곡예")) {
+                  return { ...p, multipliers: { ...p.multipliers, spe: 2 } };
+                }
               }
               return p;
             });
 
-            if (mySideIdRef.current) {
-              if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyUnburden);
-              else setMyTeam(applyUnburden);
-            }
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyUnburden);
+            else setMyTeam(applyUnburden);
           }
         }
 
