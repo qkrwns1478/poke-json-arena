@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
-import { scTranslator, getSCKorean } from "@/app/utils/StatusCondition";
+import { getSCKorean } from "@/app/utils/StatusCondition";
 import { trEngToKor, trEngToKeb } from "@/app/utils/Translator";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
@@ -318,7 +318,9 @@ export default function BattlePhase(props: Props) {
 
         {winner ? (
           <div className="bg-gray-800 p-6 rounded border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.3)] text-center flex flex-col gap-6 mt-auto">
-            <h3 className="text-3xl font-bold text-yellow-400">{winner === "Draw" ? "무승부!" : `${winner} 승리!`}</h3>
+            <h3 className="text-3xl font-bold text-yellow-400">
+              {winner === "Draw" ? "무승부!" : winner === "Disconnect" ? "상대방 연결 끊김!" : `${winner} 승리!`}
+            </h3>
             <button
               onClick={onLeave}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded text-xl shadow-lg transition"

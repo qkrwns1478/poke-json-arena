@@ -59,10 +59,14 @@ export default function GameManager() {
 
       setPhase((prevPhase) => {
         if (data.status === "room") {
-          // 만약 기존에 게임 진행 중(선택 혹은 배틀)이었다면 모든 배틀 상태를 완전히 초기화
-          if (prevPhase === "selection" || prevPhase === "battle") {
+          if (prevPhase === "battle") {
+            setTimeout(() => setWinner((prev) => prev || "Disconnect"), 0);
+            return "battle"; 
+          }
+          if (prevPhase === "selection") {
             setMySelection([]);
             resetBattleState();
+            return "room";
           }
           return "room";
         }

@@ -146,7 +146,7 @@ io.on("connection", (socket) => {
           room.players[remainingPlayerId].selectedTeamIndices = null;
         }
 
-        io.to(roomId).emit("log", `[시스템] 상대방이 나가서 게임이 중단되었습니다. 대기방으로 돌아갑니다.`);
+        io.to(roomId).emit("log", `[시스템] 상대방이 나가서 게임이 중단되었습니다.`);
       } else {
         io.to(roomId).emit("log", `[시스템] 상대방이 방을 나갔습니다.`);
       }
