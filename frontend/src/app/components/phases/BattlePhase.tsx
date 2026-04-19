@@ -23,25 +23,31 @@ const getStatusColor = (s: string) => {
   }
 };
 
-const StatBadge = ({ boost = 0 }: { boost?: number }) => {
-  if (boost === 0) {
-    return (
-      <span className="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-gray-700 text-gray-400 align-middle shadow-sm">
-        ±0
-      </span>
-    );
-  }
-
+const StatBadge = ({ boost = 0, multiplier = 1 }: { boost?: number; multiplier?: number }) => {
   return (
-    <span
-      className={`ml-1.5 px-1.5 py-0.5 text-[10px] rounded font-bold align-middle shadow-sm ${
-        boost > 0
-          ? "bg-red-900/60 text-red-300 border border-red-700/50"
-          : "bg-blue-900/60 text-blue-300 border border-blue-700/50"
-      }`}
-    >
-      {boost > 0 ? `+${boost}` : boost}
-    </span>
+    <>
+      {boost === 0 ? (
+        <span className="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-gray-700 text-gray-400 align-middle shadow-sm">
+          ±0
+        </span>
+      ) : (
+        <span
+          className={`ml-1.5 px-1.5 py-0.5 text-[10px] rounded font-bold align-middle shadow-sm ${
+            boost > 0
+              ? "bg-red-900/60 text-red-300 border border-red-700/50"
+              : "bg-blue-900/60 text-blue-300 border border-blue-700/50"
+          }`}
+        >
+          {boost > 0 ? `+${boost}` : boost}
+        </span>
+      )}
+
+      {multiplier !== 1 && (
+        <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded font-bold align-middle shadow-sm bg-purple-900/60 text-purple-300 border border-purple-700/50">
+          x{multiplier}
+        </span>
+      )}
+    </>
   );
 };
 
@@ -321,35 +327,35 @@ export default function BattlePhase(props: Props) {
                       <span className="text-gray-400">공격</span>
                       <div>
                         <span>{activePokemon.stats.atk}</span>
-                        <StatBadge boost={activePokemon.boosts?.atk} />
+                        <StatBadge boost={activePokemon.boosts?.atk} multiplier={activePokemon.multipliers?.atk} />
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">특수공격</span>
                       <div>
                         <span>{activePokemon.stats.spa}</span>
-                        <StatBadge boost={activePokemon.boosts?.spa} />
+                        <StatBadge boost={activePokemon.boosts?.spa} multiplier={activePokemon.multipliers?.spa} />
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">방어</span>
                       <div>
                         <span>{activePokemon.stats.def}</span>
-                        <StatBadge boost={activePokemon.boosts?.def} />
+                        <StatBadge boost={activePokemon.boosts?.def} multiplier={activePokemon.multipliers?.def} />
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400">특수방어</span>
                       <div>
                         <span>{activePokemon.stats.spd}</span>
-                        <StatBadge boost={activePokemon.boosts?.spd} />
+                        <StatBadge boost={activePokemon.boosts?.spd} multiplier={activePokemon.multipliers?.spd} />
                       </div>
                     </div>
                     <div className="flex justify-between items-center col-span-2 border-t border-gray-800 mt-0.5 pt-0.5">
                       <span className="text-gray-400">스피드</span>
                       <div>
                         <span>{activePokemon.stats.spe}</span>
-                        <StatBadge boost={activePokemon.boosts?.spe} />
+                        <StatBadge boost={activePokemon.boosts?.spe} multiplier={activePokemon.multipliers?.spe} />
                       </div>
                     </div>
                   </div>

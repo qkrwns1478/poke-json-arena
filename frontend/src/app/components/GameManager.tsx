@@ -136,7 +136,7 @@ export default function GameManager() {
                 setMyTeam((prev) =>
                   requestJson.side.pokemon.map((newPkmn: any) => {
                     const existing = prev.find((p) => p.ident === newPkmn.ident);
-                    return { ...newPkmn, boosts: existing?.boosts || {} };
+                    return { ...newPkmn, boosts: existing?.boosts || {}, multipliers: existing?.multipliers || {} };
                   })
                 );
               }
@@ -343,6 +343,80 @@ export default function GameManager() {
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearBoosts);
             else setMyTeam(clearBoosts);
+          }
+        }
+
+        // 고대활성, 쿼크차지 등 능력치 배율 증가 시작
+        else if (trimmed.startsWith("|-start|")) {
+          const parts = trimmed.split("|");
+          const ident = parts[2];
+          const effect = parts[3];
+          const logIdentName = getIdentName(ident);
+
+          if (effect.includes("Protosynthesis") || effect.includes("Quark Drive")) {
+            const stat = parts[4]; // 활성화된 스탯 (atk, def, spa, spd, spe)
+            if (stat) {
+              const val = stat === "spe" ? 1.5 : 1.3; // 스피드만 1.5배, 나머지는 1.3배
+              
+              const applyMultiplier = (prevTeam: any[]) => prevTeam.map((p) => {
+                const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                  return { ...p, multipliers: { ...p.multipliers, [stat]: val } };
+                }
+                return p;
+              });
+
+              if (mySideIdRef.current) {
+                if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyMultiplier);
+                else setMyTeam(applyMultiplier);
+              }
+            }
+          }
+        } 
+        
+        // 능력치 배율 증가 종료 (날씨/필드 종료, 교체 등)
+        else if (trimmed.startsWith("|-end|")) {
+          const parts = trimmed.split("|");
+          const ident = parts[2];
+          const effect = parts[3];
+          const logIdentName = getIdentName(ident);
+
+          if (effect.includes("Protosynthesis") || effect.includes("Quark Drive")) {
+            const clearMultiplier = (prevTeam: any[]) => prevTeam.map((p) => {
+              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                return { ...p, multipliers: {} }; // 효과가 끝나면 배율 초기화
+              }
+              return p;
+            });
+
+            if (mySideIdRef.current) {
+              if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearMultiplier);
+              else setMyTeam(clearMultiplier);
+            }
+          }
+        }
+
+        // 곡예 등 특정 특성 발동 캐치
+        else if (trimmed.startsWith("|-ability|")) {
+          const parts = trimmed.split("|");
+          const ident = parts[2];
+          const ability = parts[3];
+          const logIdentName = getIdentName(ident);
+
+          if (ability === "Unburden") { // 곡예 발동 시 스피드 2배
+            const applyUnburden = (prevTeam: any[]) => prevTeam.map((p) => {
+              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                return { ...p, multipliers: { ...p.multipliers, spe: 2 } };
+              }
+              return p;
+            });
+
+            if (mySideIdRef.current) {
+              if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyUnburden);
+              else setMyTeam(applyUnburden);
+            }
           }
         }
 

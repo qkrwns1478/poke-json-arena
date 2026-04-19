@@ -31,6 +31,7 @@ export interface PokemonStatus {
   active: boolean;
   stats?: PokemonStats;
   boosts?: Record<string, number>;
+  multipliers?: Record<string, number>;
   item?: string;
   baseAbility?: string;
 }
