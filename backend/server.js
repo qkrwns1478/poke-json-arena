@@ -2,18 +2,26 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import { BattleStreams, Teams, Dex } from "@pkmn/sim";
-import { applyCustomPokedex } from "./customDex.js";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const customPath = path.resolve(__dirname, '../shared/custom.json');
+const customData = JSON.parse(fs.readFileSync(customPath, 'utf8'));
+
+for (const [id, data] of Object.entries(customData)) {
+  Dex.data.Pokedex[id] = data;
+}
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-applyCustomPokedex(Dex);
-
 const rooms = new Map();
 const playerRoomMap = new Map();
 
-// const generateRoomId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 const generateRoomId = () => crypto.randomUUID();
 
 function getRoomDTO(room) {
