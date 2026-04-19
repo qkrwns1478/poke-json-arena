@@ -5,7 +5,7 @@ import { io, Socket } from "socket.io-client";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { RoomData, AvailableRoom, PokemonStatus, OppPokemon, MoveData, RoomSettings } from "@/app/types/battle";
-
+import ChatInterface from "./ChatInterface";
 import LobbyPhase from "./phases/LobbyPhase";
 import RoomPhase from "./phases/RoomPhase";
 import SelectionPhase from "./phases/SelectionPhase";
@@ -346,63 +346,78 @@ export default function GameManager() {
   };
 
   // Render Router
-  if (phase === "lobby")
-    return (
-      <LobbyPhase
-        availableRooms={availableRooms}
-        onCreateRoom={createRoom}
-        onJoinRoom={joinRoom}
-        onRefresh={requestRoomList}
-      />
-    );
-  if (phase === "room" && roomData)
-    return (
-      <RoomPhase
-        roomData={roomData}
-        socketId={socket.current ? socket.current.id : ""}
-        onLeave={leaveRoom}
-        onSubmitTeam={submitTeam}
-        onToggleReady={toggleReady}
-        onStartSelection={startSelection}
-      />
-    );
-  if (phase === "selection" && roomData)
-    return (
-      <SelectionPhase
+  return (
+    <>
+      {phase === "lobby" && (
+        <LobbyPhase
+          availableRooms={availableRooms}
+          onCreateRoom={createRoom}
+          onJoinRoom={joinRoom}
+          onRefresh={requestRoomList}
+        />
+      )}
+      
+      {phase === "room" && roomData && (
+        <RoomPhase
+          roomData={roomData}
+          socketId={socket.current ? socket.current.id : ""}
+          onLeave={leaveRoom}
+          onSubmitTeam={submitTeam}
+          onToggleReady={toggleReady}
+          onStartSelection={startSelection}
+        />
+      )}
+
+      {phase === "selection" && roomData && (
+        <SelectionPhase
+          roomData={roomData}
+          myFullTeam={myFullTeam}
+          oppFullTeam={oppFullTeam}
+          mySelection={mySelection}
+          setMySelection={setMySelection}
+          onSubmitSelection={submitSelection}
+        />
+      )}
+
+      {phase === "battle" && (
+        <BattlePhase
+          roomData={roomData}
+          myTeam={myTeam}
+          oppTeam={oppTeam}
+          oppActive={oppActive}
+          logs={logs}
+          winner={winner}
+          weather={weather}
+          fieldConditions={fieldConditions}
+          mySideConditions={mySideConditions}
+          oppSideConditions={oppSideConditions}
+          activeMoves={activeMoves}
+          canMegaEvo={canMegaEvo}
+          canZMove={canZMove}
+          zMoves={zMoves}
+          isMegaChecked={isMegaChecked}
+          setIsMegaChecked={setIsMegaChecked}
+          isZMoveChecked={isZMoveChecked}
+          setIsZMoveChecked={setIsZMoveChecked}
+          hasUsedMega={hasUsedMega}
+          hasUsedZMove={hasUsedZMove}
+          selectedAction={selectedAction}
+          sendAction={sendAction}
+          onLeave={leaveRoom}
+        />
+      )}
+
+      <ChatInterface 
+        phase={phase}
         roomData={roomData}
         myFullTeam={myFullTeam}
         oppFullTeam={oppFullTeam}
         mySelection={mySelection}
-        setMySelection={setMySelection}
-        onSubmitSelection={submitSelection}
+        myTeam={myTeam}
+        oppTeam={oppTeam}
+        oppActive={oppActive}
+        activeMoves={activeMoves}
       />
-    );
-
-  return (
-    <BattlePhase
-      roomData={roomData}
-      myTeam={myTeam}
-      oppTeam={oppTeam}
-      oppActive={oppActive}
-      logs={logs}
-      winner={winner}
-      weather={weather}
-      fieldConditions={fieldConditions}
-      mySideConditions={mySideConditions}
-      oppSideConditions={oppSideConditions}
-      activeMoves={activeMoves}
-      canMegaEvo={canMegaEvo}
-      canZMove={canZMove}
-      zMoves={zMoves}
-      isMegaChecked={isMegaChecked}
-      setIsMegaChecked={setIsMegaChecked}
-      isZMoveChecked={isZMoveChecked}
-      setIsZMoveChecked={setIsZMoveChecked}
-      hasUsedMega={hasUsedMega}
-      hasUsedZMove={hasUsedZMove}
-      selectedAction={selectedAction}
-      sendAction={sendAction}
-      onLeave={leaveRoom}
-    />
+    </>
   );
 }

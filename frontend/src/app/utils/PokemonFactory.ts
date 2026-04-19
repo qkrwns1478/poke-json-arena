@@ -1,5 +1,5 @@
 import { Pokemon, Generations, GenerationNum } from "@smogon/calc";
-import customPokemonData from "../../../../shared/custom.json";
+import customPokemonData from "@/data/custom.json";
 
 type CustomPokemonID = keyof typeof customPokemonData;
 type GenerationType = ReturnType<typeof Generations.get>;
