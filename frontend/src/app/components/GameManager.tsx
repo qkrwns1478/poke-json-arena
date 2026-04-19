@@ -236,8 +236,7 @@ export default function GameManager() {
     });
 
     return () => {
-      if (socket.current)
-        socket.current.disconnect();
+      if (socket.current) socket.current.disconnect();
     };
   }, []);
 
@@ -254,9 +253,16 @@ export default function GameManager() {
     resetBattleState();
   };
 
-  const submitTeam = (teamString: string) => {
-    if (teamString.trim()) socket.current && socket.current.emit("set-team", teamString);
-    else alert("파티를 입력해주세요.");
+  const submitTeam = (teamString: string, callback?: () => void) => {
+    if (teamString.trim()) {
+      socket.current?.emit("set-team", teamString, (response: any) => {
+        if (response?.success && callback) {
+          callback();
+        }
+      });
+    } else {
+      alert("파티를 입력해주세요.");
+    }
   };
   const toggleReady = () => socket.current && socket.current.emit("toggle-ready");
   const startSelection = () => socket.current && socket.current.emit("start-selection");

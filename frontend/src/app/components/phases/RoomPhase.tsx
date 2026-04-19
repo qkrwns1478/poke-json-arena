@@ -8,7 +8,7 @@ interface Props {
   roomData: RoomData;
   socketId: string | undefined;
   onLeave: () => void;
-  onSubmitTeam: (teamStr: string) => void;
+  onSubmitTeam: (teamStr: string, callback?: () => void) => void;
   onToggleReady: () => void;
   onStartSelection: () => void;
 }
@@ -34,8 +34,7 @@ export default function RoomPhase({
         alert("파티 데이터를 먼저 업로드하거나 샘플 파티를 선택해주세요.");
         return;
       }
-      onSubmitTeam(teamString);
-      setTimeout(() => onToggleReady(), 100); // 파티 데이터 전송 직후 준비 상태 전환
+      onSubmitTeam(teamString, onToggleReady);
     } else {
       onToggleReady();
     }

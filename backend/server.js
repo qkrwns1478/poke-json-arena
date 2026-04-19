@@ -157,19 +157,32 @@ io.on("connection", (socket) => {
   });
 
   // 4. 팀 설정 (엔트리 등록)
-  socket.on("set-team", (teamString) => {
+  socket.on("set-team", (teamString, callback) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
     if (!room || !room.players[socket.id]) return;
-    if (room.status !== "room") return socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
+    
+    if (room.status !== "room") {
+      socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
+      return;
+    }
+    
     try {
       const parsedTeam = Teams.import(teamString);
-      if (!parsedTeam || parsedTeam.length === 0) return socket.emit("log", "[오류] 올바른 팀 형식이 아닙니다.");
+      if (!parsedTeam || parsedTeam.length === 0) {
+        socket.emit("log", "[오류] 올바른 팀 형식이 아닙니다.");
+        return;
+      }
+      
       room.players[socket.id].teamString = teamString;
       room.players[socket.id].parsedTeam = parsedTeam;
       socket.emit("log", "[시스템] 파티가 등록되었습니다.");
       io.to(roomId).emit("room-update", getRoomDTO(room));
+
+      if (typeof callback === "function") {
+        callback({ success: true });
+      }
     } catch (e) {
       socket.emit("log", "[오류] 팀 데이터를 파싱하는 중 문제가 발생했습니다.");
     }
