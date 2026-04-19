@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
-import { v4 as uuidv4 } from "uuid";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
 import { RoomData, AvailableRoom, PokemonStatus, OppPokemon, MoveData, RoomSettings } from "@/app/types/battle";
@@ -11,8 +10,6 @@ import LobbyPhase from "./phases/LobbyPhase";
 import RoomPhase from "./phases/RoomPhase";
 import SelectionPhase from "./phases/SelectionPhase";
 import BattlePhase from "./phases/BattlePhase";
-
-let socket: Socket;
 
 export default function GameManager() {
   const [phase, setPhase] = useState<"lobby" | "room" | "selection" | "battle">("lobby");
@@ -51,10 +48,12 @@ export default function GameManager() {
 
   const mySideIdRef = useRef<string>("");
 
-  useEffect(() => {
-    socket = io("http://localhost:3001");
+  const socket = useRef<Socket | null>(null);
 
-    socket.on("room-update", (data: RoomData) => {
+  useEffect(() => {
+    socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL);
+
+    socket.current.on("room-update", (data: RoomData) => {
       setRoomData(data);
       roomDataRef.current = data;
 
@@ -89,27 +88,27 @@ export default function GameManager() {
       });
     });
 
-    socket.on("room-list-update", (rooms: AvailableRoom[]) => setAvailableRooms(rooms));
+    socket.current.on("room-list-update", (rooms: AvailableRoom[]) => setAvailableRooms(rooms));
 
-    socket.on("selection-start", (data: { myTeam: string[]; oppTeam: string[] }) => {
+    socket.current.on("selection-start", (data: { myTeam: string[]; oppTeam: string[] }) => {
       setMyFullTeam(data.myTeam);
       setOppFullTeam(data.oppTeam);
       setPhase("selection");
     });
 
-    socket.on("match-found", (data: { sideId: string }) => {
+    socket.current.on("match-found", (data: { sideId: string }) => {
       if (data && data.sideId) {
         mySideIdRef.current = data.sideId;
       }
       setPhase("battle");
     });
 
-    socket.on("log", (message: string) => {
+    socket.current.on("log", (message: string) => {
       if (!message.includes("[시스템]")) setLogs((prev) => [...prev, message]);
       else console.log(message);
     });
 
-    socket.on("battle-log", (chunk: string) => {
+    socket.current.on("battle-log", (chunk: string) => {
       const lines = chunk.split("\n");
       const newLogs: string[] = [];
 
@@ -122,7 +121,7 @@ export default function GameManager() {
 
         if (trimmed.startsWith("|-weather|")) {
           const w = trimmed.split("|")[2];
-          setWeather(w === "none" ? null : w !== "upkeep" ? w : weather);
+          setWeather((prev) => (w === "none" ? null : w !== "upkeep" ? w : prev));
         } else if (trimmed.startsWith("|-fieldstart|")) {
           setFieldConditions((prev) => [...new Set([...prev, trimmed.split("|")[2].replace("move: ", "")])]);
         } else if (trimmed.startsWith("|-fieldend|")) {
@@ -237,16 +236,17 @@ export default function GameManager() {
     });
 
     return () => {
-      socket.disconnect();
+      if (socket.current)
+        socket.current.disconnect();
     };
   }, []);
 
   // Actions
-  const createRoom = (settings: RoomSettings) => socket.emit("create-room", settings);
-  const joinRoom = (roomId: string) => socket.emit("join-room", roomId);
-  const requestRoomList = () => socket.emit("request-room-list");
+  const createRoom = (settings: RoomSettings) => socket.current && socket.current.emit("create-room", settings);
+  const joinRoom = (roomId: string) => socket.current && socket.current.emit("join-room", roomId);
+  const requestRoomList = () => socket.current && socket.current.emit("request-room-list");
   const leaveRoom = () => {
-    socket.emit("leave-room");
+    socket.current && socket.current.emit("leave-room");
     setPhase("lobby");
     setRoomData(null);
     roomDataRef.current = null;
@@ -255,12 +255,12 @@ export default function GameManager() {
   };
 
   const submitTeam = (teamString: string) => {
-    if (teamString.trim()) socket.emit("set-team", teamString);
+    if (teamString.trim()) socket.current && socket.current.emit("set-team", teamString);
     else alert("파티를 입력해주세요.");
   };
-  const toggleReady = () => socket.emit("toggle-ready");
-  const startSelection = () => socket.emit("start-selection");
-  const submitSelection = (selection: number[]) => socket.emit("submit-selection", selection);
+  const toggleReady = () => socket.current && socket.current.emit("toggle-ready");
+  const startSelection = () => socket.current && socket.current.emit("start-selection");
+  const submitSelection = (selection: number[]) => socket.current && socket.current.emit("submit-selection", selection);
 
   const sendAction = (type: "move" | "switch", index: number) => {
     if (!socket || winner) return;
@@ -269,7 +269,7 @@ export default function GameManager() {
       if (isMegaChecked) cmd += " mega";
       if (isZMoveChecked) cmd += " zmove";
     }
-    socket.emit("action", cmd);
+    socket.current && socket.current.emit("action", cmd);
     setSelectedAction({ type, index });
   };
 
@@ -309,7 +309,7 @@ export default function GameManager() {
     return (
       <RoomPhase
         roomData={roomData}
-        socketId={socket.id}
+        socketId={socket.current ? socket.current.id : ""}
         onLeave={leaveRoom}
         onSubmitTeam={submitTeam}
         onToggleReady={toggleReady}

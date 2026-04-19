@@ -10,7 +10,7 @@ interface Props {
 
 export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, onRefresh }: Props) {
   const [createSettings, setCreateSettings] = useState<RoomSettings>({
-    format: 3,
+    format: 6,
     allowMega: true,
     allowZMove: true,
     noLimit: false,
@@ -88,10 +88,9 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                   className="bg-gray-900 p-3 rounded border border-gray-600 flex justify-between items-center shadow-md hover:border-green-500 transition"
                 >
                   <div className="flex flex-col">
-                    <span className="font-bold text-yellow-400 tracking-wider">Room: {room.id}</span>
+                    <span className="font-bold text-yellow-400 tracking-wider">Room: {room.id.split("-")[0].toUpperCase()}</span>
                     <span className="text-xs text-gray-400 mt-1">
-                      {room.settings.format}v{room.settings.format} | 메가{room.settings.allowMega ? "O" : "X"} | Z기술
-                      {room.settings.allowZMove ? "O" : "X"}
+                      {room.settings.format}v{room.settings.format} | 메가{room.settings.allowMega ? "O" : "X"} | Z기술{room.settings.allowZMove ? "O" : "X"}
                     </span>
                   </div>
                   <button

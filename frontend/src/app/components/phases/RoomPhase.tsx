@@ -46,7 +46,9 @@ export default function RoomPhase({
       <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-4xl shadow-2xl">
         <div className="flex justify-between items-end mb-6 border-b border-gray-700 pb-4">
           <div>
-            <h1 className="text-3xl font-bold text-yellow-400 tracking-wide">대기방: {roomData.id}</h1>
+            <h1 className="text-3xl font-bold text-yellow-400 tracking-wide">
+              Room: {roomData.id.split("-")[0].toUpperCase()}
+            </h1>
             <p className="text-gray-400 text-sm mt-2">
               포맷: {roomData.settings.format}v{roomData.settings.format}
             </p>
@@ -142,8 +144,8 @@ export default function RoomPhase({
         <div className="flex gap-4 mt-8 border-t border-gray-700 pt-6">
           <button
             onClick={handleReadyClick}
-            disabled={!teamString.trim()}
-            className={`flex-1 font-bold py-4 rounded text-xl transition shadow-lg ${myData?.ready ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"} ${!teamString.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={!myData?.ready && !teamString.trim()}
+            className={`flex-1 font-bold py-4 rounded text-xl transition shadow-lg ${myData?.ready ? "bg-yellow-600 hover:bg-yellow-700" : "bg-green-600 hover:bg-green-700"} ${!myData?.ready && !teamString.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {myData?.ready ? "준비 취소" : "준비 완료"}
           </button>

@@ -13,7 +13,8 @@ applyCustomPokedex(Dex);
 const rooms = new Map();
 const playerRoomMap = new Map();
 
-const generateRoomId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+// const generateRoomId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+const generateRoomId = () => crypto.randomUUID();
 
 function getRoomDTO(room) {
   return {
@@ -60,6 +61,12 @@ io.on("connection", (socket) => {
 
   // 1. 방 만들기
   socket.on("create-room", (settings) => {
+    const sanitized = {
+      format: settings?.format === 6 ? 6 : 3,
+      allowMega: !!settings?.allowMega,
+      allowZMove: !!settings?.allowZMove,
+      noLimit: !!settings?.noLimit,
+    };
     const roomId = generateRoomId();
     const room = {
       id: roomId,
@@ -120,6 +127,7 @@ io.on("connection", (socket) => {
       if (room.host === socketId) room.host = Object.keys(room.players)[0]; // 방장 양도
 
       if (room.status !== "room") {
+        room.game?.streams?.omniscient?.writeEnd?.();
         room.status = "room";
         room.game = null;
 
@@ -153,6 +161,8 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
+    if (!room || !room.players[socket.id]) return;
+    if (room.status !== "room") return socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
     try {
       const parsedTeam = Teams.import(teamString);
       if (!parsedTeam || parsedTeam.length === 0) return socket.emit("log", "[오류] 올바른 팀 형식이 아닙니다.");
@@ -170,6 +180,8 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
+    if (!room || !room.players[socket.id]) return;
+    if (room.status !== "room") return socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
     const player = room.players[socket.id];
     if (!player.parsedTeam) return socket.emit("log", "[시스템] 파티를 먼저 등록해주세요.");
     player.ready = !player.ready;
@@ -181,12 +193,21 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
-    if (room.host !== socket.id) return;
+    if (!room || !room.players[socket.id]) return;
+    if (room.status !== "room") return socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
+    
 
     const pKeys = Object.keys(room.players);
     if (pKeys.length !== 2) return socket.emit("log", "[시스템] 2명의 플레이어가 필요합니다.");
     if (!room.players[pKeys[0]].ready || !room.players[pKeys[1]].ready)
       return socket.emit("log", "[시스템] 모든 플레이어가 준비되지 않았습니다.");
+    const fmt = room.settings.format;
+    if (
+      room.players[pKeys[0]].parsedTeam.length < fmt ||
+      room.players[pKeys[1]].parsedTeam.length < fmt
+    ) {
+      return socket.emit("log", "[시스템] 팀이 포맷보다 작습니다.");
+    }
 
     room.status = "selection";
     const p1Id = pKeys[0],
@@ -209,9 +230,21 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
-    if (room.status !== "selection") return;
+    if (!room || room.status !== "selection") return;
 
-    room.players[socket.id].selectedTeamIndices = indices;
+    const player = room.players[socket.id];
+    const teamLen = player?.parsedTeam?.length ?? 0;
+    const req = room.settings.format;
+    if (
+      !Array.isArray(indices) ||
+      indices.length !== req ||
+      new Set(indices).size !== indices.length ||
+      indices.some((i) => !Number.isInteger(i) || i < 0 || i >= teamLen)
+    ) {
+      return socket.emit("log", "[오류] 잘못된 선택 데이터입니다.");
+    }
+
+    player.selectedTeamIndices = indices;
     socket.emit("log", "[시스템] 출전 포켓몬 선택을 완료했습니다. 상대를 기다리는 중...");
 
     const pKeys = Object.keys(room.players);
@@ -281,9 +314,9 @@ function startGame(room) {
     }
   })();
 
-  streams.omniscient.write(`>start {"formatid":"gen9customgame@@@!teampreview"}`);
-  streams.omniscient.write(`>player p1 {"name":"Player 1","team":"${p1Packed}"}`);
-  streams.omniscient.write(`>player p2 {"name":"Player 2","team":"${p2Packed}"}`);
+  streams.omniscient.write(`>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview" })}`);
+  streams.omniscient.write(`>player p1 ${JSON.stringify({ name: "Player 1", team: p1Packed })}`);
+  streams.omniscient.write(`>player p2 ${JSON.stringify({ name: "Player 2", team: p2Packed })}`);
 }
 
 server.listen(3001, () => {

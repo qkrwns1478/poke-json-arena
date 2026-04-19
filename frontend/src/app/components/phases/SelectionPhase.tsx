@@ -45,7 +45,7 @@ export default function SelectionPhase({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {oppFullTeam.map((p, idx) => (
               <div key={idx} className="p-4 border border-gray-700 bg-gray-900 rounded flex flex-col items-center">
-                <div className={`sprite-${p.toLowerCase().replace(" ", "-")} transform scale-125 mb-2`} />
+                <div className={`sprite-${p.toLowerCase().replaceAll(" ", "-")} transform scale-125 mb-2`} />
                 <span className="font-bold text-sm text-gray-300">{trEngToKor(p)}</span>
               </div>
             ))}
@@ -64,7 +64,7 @@ export default function SelectionPhase({
                   onClick={() => handleSelect(idx)}
                   className={`p-4 border rounded cursor-pointer relative flex flex-col items-center ${selIdx >= 0 ? "border-yellow-400 bg-yellow-900/30" : "border-gray-700 bg-gray-900"} ${isSubmitted ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  <div className={`sprite-${p.toLowerCase().replace(" ", "-")} transform scale-125 mb-2`} />
+                  <div className={`sprite-${p.toLowerCase().replaceAll(" ", "-")} transform scale-125 mb-2`} />
                   <span className={`font-bold text-sm ${selIdx >= 0 ? "text-yellow-400" : "text-gray-300"}`}>
                     {trEngToKor(p)}
                   </span>

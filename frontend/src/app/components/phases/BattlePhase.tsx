@@ -32,11 +32,12 @@ const HpBar = ({ condition }: { condition: string }) => {
     );
   const statusMatch = condition.match(/\b(brn|par|psn|tox|slp|frz)\b/);
   const status = statusMatch ? statusMatch[1] : null;
-  const hpMatch = condition.match(/(\d+)\/(\d+)/) || condition.match(/(\d+)\/100/);
+  const hpMatch = condition.match(/(\d+)\/(\d+)/);
   if (!hpMatch) return null;
-  const current = parseInt(hpMatch[1]),
-    max = condition.includes("100") ? 100 : parseInt(hpMatch[2]);
-  const percent = Math.max(0, Math.min(100, (current / max) * 100));
+  const current = parseInt(hpMatch[1], 10);
+  const max = parseInt(hpMatch[2], 10);
+  const isPercent = max === 100; // PS는 상대측 HP를 0~100 스케일로 보냄
+  const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   const color = percent > 50 ? "bg-green-500" : percent > 20 ? "bg-yellow-500" : "bg-red-500";
   return (
     <div className="w-full mt-1">
@@ -52,12 +53,15 @@ const HpBar = ({ condition }: { condition: string }) => {
           </span>
         )}
         <div className="text-xs font-mono text-gray-300">
-          {condition.includes("100") ? `${current}%` : `${current} / ${max}`}
+          {isPercent ? `${current}%` : `${current} / ${max}`}
         </div>
       </div>
     </div>
   );
 };
+
+const toSpriteKey = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 // --- Component ---
 interface Props {
@@ -142,7 +146,7 @@ export default function BattlePhase(props: Props) {
             <div className="text-xs text-red-400 mb-2 font-bold tracking-wider">OPPONENT</div>
             {oppActive ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-gray-700">
-                <div className={`sprite-${oppActive.name.toLowerCase().replace(" ", "-")}`}></div>
+                <div className={`sprite-${toSpriteKey(oppActive.name)}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-gray-200">{trEngToKor(oppActive.name)}</div>
                   <HpBar condition={oppActive.condition} />
@@ -172,7 +176,7 @@ export default function BattlePhase(props: Props) {
             <div className="text-xs text-blue-400 mb-2 font-bold tracking-wider">MY ACTIVE</div>
             {activePokemon ? (
               <div className="flex items-center gap-4 bg-gray-900 p-3 rounded border border-blue-900/50">
-                <div className={`sprite-${activePokemon.details.split(",")[0].toLowerCase().replace(" ", "-")}`}></div>
+                <div className={`sprite-${toSpriteKey(activePokemon.details.split(",")[0])}`}></div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-yellow-400">{trEngToKor(activePokemon.details.split(",")[0])}</div>
                   <HpBar condition={activePokemon.condition} />
@@ -236,7 +240,7 @@ export default function BattlePhase(props: Props) {
                     <div className="sprite-unknown scale-75 transform"></div>
                   </div>
                 );
-              const nameLower = pkmn.name.toLowerCase().replace(" ", "-");
+              const nameLower = toSpriteKey(pkmn.name);
               return (
                 <div
                   key={i}
@@ -396,7 +400,7 @@ export default function BattlePhase(props: Props) {
                       <div className="flex justify-between items-center w-full">
                         <div className="flex gap-2 items-center">
                           <span
-                            className={`inline-block sprite-${name.toLowerCase().replace(" ", "-")} scale-75 origin-left`}
+                            className={`inline-block sprite-${toSpriteKey(name)} scale-75 origin-left`}
                           ></span>
                           <span className="text-sm">{trEngToKor(name)}</span>
                         </div>
