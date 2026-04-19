@@ -10,7 +10,7 @@ export interface RoomData {
   id: string;
   host: string;
   settings: RoomSettings;
-  status: string;
+  status: "room" | "selection" | "battle";
   players: { id: string; ready: boolean; hasTeam: boolean }[];
 }
 export interface AvailableRoom {

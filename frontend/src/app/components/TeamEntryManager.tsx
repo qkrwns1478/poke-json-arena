@@ -18,6 +18,7 @@ export const TeamEntryManager = ({ onTeamConfirm }: Props) => {
         const parsed = parsePokemonTeam(json);
         onTeamConfirm(parsed); // 업로드 완료 즉시 상위 컴포넌트에 파티 전달
       } catch (err) {
+        console.error("[TeamEntryManager] JSON parse failed:", err);
         alert("JSON 파일 형식이 올바르지 않습니다.");
       }
     };

@@ -62,25 +62,7 @@ export default function GameManager() {
           // 만약 기존에 게임 진행 중(선택 혹은 배틀)이었다면 모든 배틀 상태를 완전히 초기화
           if (prevPhase === "selection" || prevPhase === "battle") {
             setMySelection([]);
-            setWinner(null);
-            setLogs([]);
-            setMyTeam([]);
-            setActiveMoves([]);
-            setOppTeam([]);
-            setOppActive(null);
-            mySideIdRef.current = "";
-            setWeather(null);
-            setFieldConditions([]);
-            setMySideConditions([]);
-            setOppSideConditions([]);
-            setSelectedAction(null);
-            setCanMegaEvo(false);
-            setCanZMove(false);
-            setZMoves(null);
-            setIsMegaChecked(false);
-            setIsZMoveChecked(false);
-            setHasUsedMega(false);
-            setHasUsedZMove(false);
+            resetBattleState();
           }
           return "room";
         }
@@ -269,13 +251,13 @@ export default function GameManager() {
   const submitSelection = (selection: number[]) => socket.current && socket.current.emit("submit-selection", selection);
 
   const sendAction = (type: "move" | "switch", index: number) => {
-    if (!socket || winner) return;
+    if (!socket.current || !socket.current.connected || winner) return;
     let cmd = `${type} ${index}`;
     if (type === "move") {
       if (isMegaChecked) cmd += " mega";
       if (isZMoveChecked) cmd += " zmove";
     }
-    socket.current && socket.current.emit("action", cmd);
+    socket.current.emit("action", cmd);
     setSelectedAction({ type, index });
   };
 

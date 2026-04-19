@@ -52,16 +52,17 @@ const HpBar = ({ condition }: { condition: string }) => {
             {getSCKorean(status)}
           </span>
         )}
-        <div className="text-xs font-mono text-gray-300">
-          {isPercent ? `${current}%` : `${current} / ${max}`}
-        </div>
+        <div className="text-xs font-mono text-gray-300">{isPercent ? `${current}%` : `${current} / ${max}`}</div>
       </div>
     </div>
   );
 };
 
 const toSpriteKey = (name: string) =>
-  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 // --- Component ---
 interface Props {
@@ -78,7 +79,7 @@ interface Props {
   activeMoves: MoveData[];
   canMegaEvo: boolean;
   canZMove: boolean;
-  zMoves: any;
+  zMoves: { move: string; target?: string }[] | null;
   isMegaChecked: boolean;
   setIsMegaChecked: (v: boolean) => void;
   isZMoveChecked: boolean;
@@ -321,34 +322,28 @@ export default function BattlePhase(props: Props) {
                 <h3 className="font-bold text-yellow-400">기술</h3>
                 <div className="flex gap-2">
                   {canMegaEvo && (!hasUsedMega || roomData?.settings?.noLimit) && !hasUsedZMove && (
-                    <label
+                    <button
+                      type="button"
+                      aria-pressed={isMegaChecked}
+                      disabled={!!selectedAction}
+                      onClick={() => setIsMegaChecked(!isMegaChecked)}
                       className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isMegaChecked ? "bg-purple-600 text-white font-bold" : "bg-gray-700"}`}
                     >
-                      <input
-                        type="checkbox"
-                        className="hidden"
-                        checked={isMegaChecked}
-                        onChange={(e) => setIsMegaChecked(e.target.checked)}
-                        disabled={!!selectedAction}
-                      />
                       <span className="sprite-icon-mega" />
                       메가진화
-                    </label>
+                    </button>
                   )}
                   {canZMove && (!hasUsedZMove || roomData?.settings?.noLimit) && !hasUsedMega && (
-                    <label
+                    <button
+                      type="button"
+                      aria-pressed={isZMoveChecked}
+                      disabled={!!selectedAction}
+                      onClick={() => setIsZMoveChecked(!isZMoveChecked)}
                       className={`text-xs flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition ${isZMoveChecked ? "bg-orange-500 text-white font-bold" : "bg-gray-700"}`}
                     >
-                      <input
-                        type="checkbox"
-                        className="hidden"
-                        checked={isZMoveChecked}
-                        onChange={(e) => setIsZMoveChecked(e.target.checked)}
-                        disabled={!!selectedAction}
-                      />
                       <span className="sprite-icon-zmove" />
                       Z기술
-                    </label>
+                    </button>
                   )}
                 </div>
               </div>
@@ -363,7 +358,9 @@ export default function BattlePhase(props: Props) {
                         key={idx}
                         onClick={() => sendAction("move", idx + 1)}
                         disabled={disabled}
-                        className={`p-3 rounded font-bold text-sm shadow flex justify-center relative ${isSelected ? "bg-yellow-600 text-white ring-2" : isZ ? "bg-orange-500 text-white" : "bg-red-600 hover:bg-red-700 text-white transition"} ${disabled ? "opacity-50 !bg-gray-600 cursor-not-allowed" : ""}`}
+                        className={`p-3 rounded font-bold text-sm shadow flex justify-center relative
+                          ${isSelected ? "bg-yellow-600 text-white ring-2" : isZ ? "bg-orange-500 text-white" : "bg-red-600 hover:bg-red-700 text-white transition"}
+                          ${disabled ? "opacity-50 bg-gray-600! cursor-not-allowed" : ""}`}
                       >
                         <span className={isSelected ? "opacity-30" : ""}>
                           {trEngToKor(isZ ? zMoves[idx].move : m.move, "MOVES")}
@@ -399,9 +396,7 @@ export default function BattlePhase(props: Props) {
                     >
                       <div className="flex justify-between items-center w-full">
                         <div className="flex gap-2 items-center">
-                          <span
-                            className={`inline-block sprite-${toSpriteKey(name)} scale-75 origin-left`}
-                          ></span>
+                          <span className={`inline-block sprite-${toSpriteKey(name)} scale-75 origin-left`}></span>
                           <span className="text-sm">{trEngToKor(name)}</span>
                         </div>
                         <span className="text-xs">{scTranslator(p.condition)}</span>

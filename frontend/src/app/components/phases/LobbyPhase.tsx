@@ -72,9 +72,13 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
         <div className="flex-1 bg-gray-800 p-8 rounded-lg border border-gray-700 shadow-xl flex flex-col gap-4">
           <div className="flex justify-between items-center border-b border-gray-700 pb-2">
             <h2 className="text-2xl font-bold text-green-400">방 참가</h2>
-            <span className="text-sm text-gray-400 cursor-pointer hover:text-white" onClick={onRefresh}>
+            <button
+              type="button"
+              className="text-sm text-gray-400 cursor-pointer hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+              onClick={onRefresh}
+            >
               ↻ 새로고침
-            </span>
+            </button>
           </div>
           <div className="flex-1 flex flex-col gap-3 mt-2 overflow-y-auto max-h-64 custom-scrollbar pr-2">
             {availableRooms.length === 0 ? (
