@@ -24,35 +24,47 @@ const getStatusColor = (s: string) => {
 };
 
 const HpBar = ({ condition }: { condition: string }) => {
-  if (!condition || condition === "0 fnt")
+  if (!condition || condition.includes("fnt") || condition === "0")
     return (
       <div className="w-full mt-1">
         <div className="h-2.5 w-full bg-gray-700 rounded-full border border-gray-900"></div>
+        <div className="flex items-center justify-between mt-1 min-h-[20px]">
+          <span />
+          <div className="text-xs font-mono text-red-500 font-bold">FNT</div>
+        </div>
       </div>
     );
+
   const statusMatch = condition.match(/\b(brn|par|psn|tox|slp|frz)\b/);
   const status = statusMatch ? statusMatch[1] : null;
-  const hpMatch = condition.match(/(\d+)\/(\d+)/);
+
+  const hpMatch = condition.match(/([\d.]+)\/(\d+)/);
   if (!hpMatch) return null;
-  const current = parseInt(hpMatch[1], 10);
+
+  const current = parseFloat(hpMatch[1]);
   const max = parseInt(hpMatch[2], 10);
-  const isPercent = max === 100; // PS는 상대측 HP를 0~100 스케일로 보냄
+  
   const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   const color = percent > 50 ? "bg-green-500" : percent > 20 ? "bg-yellow-500" : "bg-red-500";
+
+  const isPercent = max === 100;
+
   return (
     <div className="w-full mt-1">
       <div className="h-2.5 w-full bg-gray-700 rounded-full overflow-hidden border border-gray-900">
         <div className={`h-full ${color}`} style={{ width: `${percent}%` }}></div>
       </div>
-      <div className="flex justify-between items-center mt-1">
-        {status && (
-          <span
-            className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-white ${getStatusColor(status)}`}
-          >
+      <div className="flex items-center justify-between mt-1 min-h-[20px]">
+        {status ? (
+          <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-white ${getStatusColor(status)}`}>
             {getSCKorean(status)}
           </span>
+        ) : (
+          <span />
         )}
-        <div className="text-xs font-mono text-gray-300">{isPercent ? `${current}%` : `${current} / ${max}`}</div>
+        <div className="text-xs font-mono text-gray-300">
+          {isPercent ? `${Math.ceil(current)}%` : `${Math.ceil(current)} / ${max}`}
+        </div>
       </div>
     </div>
   );

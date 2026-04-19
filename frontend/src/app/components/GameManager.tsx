@@ -94,6 +94,8 @@ export default function GameManager() {
       const lines = chunk.split("\n");
       const newLogs: string[] = [];
 
+      const getIdentName = (identStr: string) => identStr.substring(identStr.indexOf(":") + 1).trim();
+
       lines.forEach((line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
@@ -151,58 +153,114 @@ export default function GameManager() {
           } catch (e) {
             console.error("Parse error", e);
           }
-        } else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|")) {
+        } 
+        
+        else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|") || trimmed.startsWith("|replace|")) {
           const [, , ident, details, condition] = trimmed.split("|");
-          const name = details.split(",")[0];
-          if (mySideIdRef.current && !ident.startsWith(mySideIdRef.current)) {
-            setOppActive({ ident, name, details, condition, revealed: true, fainted: condition === "0 fnt" });
-            setOppTeam((prev) => {
-              const newTeam = [...prev];
-              const idx = newTeam.findIndex((p) => p.name === name);
-              if (idx >= 0) newTeam[idx] = { ...newTeam[idx], condition, fainted: condition === "0 fnt" };
-              else if (newTeam.length < 6)
-                newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition === "0 fnt" });
-              return newTeam;
-            });
-          }
-        } else if (trimmed.startsWith("|-mega|")) {
-          if (
-            mySideIdRef.current &&
-            trimmed.split("|")[2].startsWith(mySideIdRef.current) &&
-            !roomDataRef.current?.settings?.noLimit
-          )
-            setHasUsedMega(true);
-        } else if (trimmed.startsWith("|-zpower|") || trimmed.startsWith("|-zburst|")) {
-          if (
-            mySideIdRef.current &&
-            trimmed.split("|")[2].startsWith(mySideIdRef.current) &&
-            !roomDataRef.current?.settings?.noLimit
-          )
-            setHasUsedZMove(true);
-        } else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|") || trimmed.startsWith("|faint|")) {
-          // (간소화: 데미지/회복/기절 상태 업데이트 로직)
-          const parts = trimmed.split("|");
-          const isFaint = trimmed.startsWith("|faint|");
-          const ident = parts[2];
-          const condition = isFaint ? "0 fnt" : parts[3];
+          const name = details.split(",")[0].trim();
+          const logIdentName = getIdentName(ident); // 닉네임/종족명 혼동 방지
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive((prev) =>
-                prev && prev.ident === ident ? { ...prev, condition, fainted: isFaint || condition === "0 fnt" } : prev,
+              setOppActive({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt") });
+              setOppTeam((prev) => {
+                const newTeam = [...prev];
+                const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
+                if (idx >= 0) newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt") };
+                else if (newTeam.length < 6)
+                  newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt") });
+                return newTeam;
+              });
+            } else {
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = getIdentName(p.ident);
+                  const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
+                  return { ...p, active: isActive, condition: isActive ? condition : p.condition };
+                })
               );
+            }
+          }
+        } 
+        
+        else if (trimmed.startsWith("|-mega|")) {
+          if (mySideIdRef.current && trimmed.split("|")[2].startsWith(mySideIdRef.current) && !roomDataRef.current?.settings?.noLimit)
+            setHasUsedMega(true);
+        } else if (trimmed.startsWith("|-zpower|") || trimmed.startsWith("|-zburst|")) {
+          if (mySideIdRef.current && trimmed.split("|")[2].startsWith(mySideIdRef.current) && !roomDataRef.current?.settings?.noLimit)
+            setHasUsedZMove(true);
+        } 
+
+        else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|") || trimmed.startsWith("|-sethp|") || trimmed.startsWith("|faint|")) {
+          const parts = trimmed.split("|");
+          const cmd = parts[1];
+          const ident = parts[2];
+          const condition = cmd === "faint" ? "0 fnt" : parts[3];
+          const isFaint = cmd === "faint" || (condition?.includes("fnt") ?? false);
+          const logIdentName = getIdentName(ident);
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppActive((prev) => {
+                if (!prev) return prev;
+                const prevIdentName = getIdentName(prev.ident);
+                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
+                  ? { ...prev, condition, fainted: isFaint } : prev;
+              });
               setOppTeam((prev) =>
-                prev.map((p) =>
-                  p.ident === ident ? { ...p, condition, fainted: isFaint || condition === "0 fnt" } : p,
-                ),
+                prev.map((p) => {
+                  const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                  return logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)
+                    ? { ...p, condition, fainted: isFaint } : p;
+                })
               );
             } else {
               setMyTeam((prev) =>
                 prev.map((p) => {
-                  const reqName = p.ident.substring(p.ident.indexOf(":") + 1).trim();
-                  const logName = ident.substring(ident.indexOf(":") + 1).trim();
-                  return logName.startsWith(reqName) || reqName.startsWith(logName) ? { ...p, condition } : p;
-                }),
+                  const reqName = getIdentName(p.ident);
+                  return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName) 
+                    ? { ...p, condition } : p;
+                })
+              );
+            }
+          }
+        } 
+        
+        else if (trimmed.startsWith("|-status|") || trimmed.startsWith("|-curestatus|")) {
+          const parts = trimmed.split("|");
+          const cmd = parts[1];
+          const ident = parts[2];
+          const statusStr = cmd === "-status" ? parts[3] : "";
+          const logIdentName = getIdentName(ident);
+
+          const updateCondition = (oldCond: string) => {
+            if (!oldCond) return oldCond;
+            const hpPart = oldCond.split(" ")[0];
+            return statusStr ? `${hpPart} ${statusStr}` : hpPart;
+          };
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppActive((prev) => {
+                if (!prev) return prev;
+                const prevIdentName = getIdentName(prev.ident);
+                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
+                  ? { ...prev, condition: updateCondition(prev.condition) } : prev;
+              });
+              setOppTeam((prev) =>
+                prev.map((p) => {
+                  const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                  return logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)
+                    ? { ...p, condition: updateCondition(p.condition) } : p;
+                })
+              );
+            } else {
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = getIdentName(p.ident);
+                  return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName)
+                    ? { ...p, condition: updateCondition(p.condition) } : p;
+                })
               );
             }
           }
