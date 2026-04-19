@@ -30,6 +30,7 @@ export interface PokemonStatus {
   condition: string;
   active: boolean;
   stats?: PokemonStats;
+  boosts?: Record<string, number>;
   item?: string;
   baseAbility?: string;
 }
@@ -38,6 +39,7 @@ export interface OppPokemon {
   name: string;
   details: string;
   condition: string;
+  boosts?: Record<string, number>;
   revealed: boolean;
   fainted: boolean;
 }

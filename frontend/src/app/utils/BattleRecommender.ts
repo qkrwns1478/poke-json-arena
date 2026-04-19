@@ -229,18 +229,18 @@ export function recommendBattleAction(
   if (!myActive || !oppActive) {
     return {
       action_type: "move",
-      parameter: activeMoves[0]?.id ?? "",
+      parameter: activeMoves[0]?.move ?? "",
       reason: "활성 포켓몬 정보를 확인할 수 없습니다.",
     };
   }
 
-  const myName = myActive.details.split(",")[0];
+  const myName = myActive.details.split(",")[0].trim();
   const myKor = getPokeKor(myName);
   const myHpPct = parseCurrentHpPct(myActive.condition);
   const myLevel = parseLevel(myActive.details);
   const mySmogon = buildSmogonPokemon(myName, myLevel, myActive.baseAbility, myActive.item);
 
-  const oppName = oppActive.name;
+  const oppName = oppActive.name.trim();
   const oppKor = getPokeKor(oppName);
   const oppHpPct = parseCurrentHpPct(oppActive.condition);
   const oppLevel = parseLevel(oppActive.details);
@@ -249,7 +249,7 @@ export function recommendBattleAction(
   if (!mySmogon || !oppSmogon) {
     return {
       action_type: "move",
-      parameter: activeMoves[0]?.id ?? "",
+      parameter: activeMoves[0]?.move ?? "",
       reason: "계산을 위한 포켓몬 데이터를 불러올 수 없습니다.",
     };
   }
@@ -268,7 +268,7 @@ export function recommendBattleAction(
   const myBench = myTeam.filter((p) => !p.active && parseCurrentHpPct(p.condition) > 0);
   const benchEvals: SwitchEval[] = myBench
     .map((benchPoke) => {
-      const bName = benchPoke.details.split(",")[0];
+      const bName = benchPoke.details.split(",")[0].trim();
       const bLevel = parseLevel(benchPoke.details);
       const bSmogon = buildSmogonPokemon(bName, bLevel, benchPoke.baseAbility, benchPoke.item);
       if (!bSmogon) return { pokemon: benchPoke, incomingMaxPct: 100, outgoingAvgPct: 0, isImmune: false, speed: 0 };
@@ -298,7 +298,7 @@ export function recommendBattleAction(
       );
       if (likelySwitchIn) {
         const switchInKor = getPokeKor(likelySwitchIn.name);
-        subRecommendation = `(상대 교체 예측): 상대 ${p은는(oppKor)} 불리한 대면이므로 ${switchInKor}(으)로 교체할 가능성이 높습니다. 이를 예측하여 기술을 선택하는 것도 고려해보세요.`;
+        subRecommendation = `💡 (상대 교체 예측): 상대 ${p은는(oppKor)} 불리한 대면이므로 ${switchInKor}(으)로 교체할 가능성이 높습니다. 이를 예측하여 기술을 선택하는 것도 고려해보세요.`;
       }
     }
   }
@@ -307,32 +307,34 @@ export function recommendBattleAction(
     const priorityKOs = evaluatedMoves.filter((m) => m.priority > 0 && m.isGuaranteedKO);
     if (priorityKOs.length > 0) {
       const bestPriority = priorityKOs.sort((a, b) => a.drawbackScore - b.drawbackScore)[0];
-      const mKor = getMoveKor(bestPriority.moveData.move);
+      const mName = bestPriority.smogonMove.name;
+      const mKor = getMoveKor(mName);
       return {
         action_type: "move",
-        parameter: bestPriority.moveData.id,
+        parameter: mName, // 원래 포맷(띄어쓰기 포함 영어명) 복구
         reason: `현재 ${p은는(myKor)} 상대보다 느려 다음 턴에 공격을 맞고 기절할 확률이 높습니다. 하지만 선공기인 ${p을를(mKor)} 사용하면 상대를 먼저 쓰러뜨릴 수 있습니다!`,
         sub_recommendation: subRecommendation,
       };
     }
 
     if (bestSwitch && bestSwitch.incomingMaxPct < 50) {
-      const bKor = getPokeKor(bestSwitch.pokemon.details.split(",")[0]);
-      const immuneText = bestSwitch.isImmune ? " 완전히 무효화하며" : " 안전하게 받아내며";
+      const bName = bestSwitch.pokemon.details.split(",")[0].trim();
+      const bKor = getPokeKor(bName);
       return {
         action_type: "switch",
-        parameter: bestSwitch.pokemon.ident,
-        reason: `현재 ${p은는(myKor)} 상대보다 느리고 다음 공격에 기절할 위기입니다. 상대의 공격을${immuneText} 유리한 대면을 만들 수 있는 ${p으로(bKor)} 교체하는 것이 좋습니다.`,
+        parameter: bName, // 원래 포맷(영어 포켓몬명) 복구
+        reason: `현재 ${p은는(myKor)} 상대보다 느리고 다음 공격에 기절할 위기입니다. 상대의 공격을${bestSwitch.isImmune ? " 완전히 무효화하며" : " 안전하게 받아내며"} 유리한 대면을 만들 수 있는 ${p으로(bKor)} 교체하는 것이 좋습니다.`,
         sub_recommendation: subRecommendation,
       };
     }
 
     const priorityMoves = evaluatedMoves.filter((m) => m.priority > 0).sort((a, b) => b.avgPct - a.avgPct);
     if (priorityMoves.length > 0) {
-      const mKor = getMoveKor(priorityMoves[0].moveData.move);
+      const mName = priorityMoves[0].smogonMove.name;
+      const mKor = getMoveKor(mName);
       return {
         action_type: "move",
-        parameter: priorityMoves[0].moveData.id,
+        parameter: mName,
         reason: `교체가 여의치 않고 기절할 위기이므로, 기절하기 전에 선공기인 ${p으로(mKor)} 최대한 데미지를 누적시키는 것을 추천합니다.`,
         sub_recommendation: subRecommendation,
       };
@@ -343,7 +345,8 @@ export function recommendBattleAction(
   if (koMoves.length > 0) {
     koMoves.sort((a, b) => a.drawbackScore - b.drawbackScore);
     const safeKillMove = koMoves[0];
-    const mKor = getMoveKor(safeKillMove.moveData.move);
+    const mName = safeKillMove.smogonMove.name;
+    const mKor = getMoveKor(mName);
 
     let reasonText = ``;
     if (safeKillMove.drawbackScore === 0) {
@@ -353,23 +356,14 @@ export function recommendBattleAction(
     }
 
     const pKo = koMoves.find((m) => m.priority > 0);
-    if (!amIFaster && pKo && pKo.moveData.id !== safeKillMove.moveData.id) {
-      const pkKor = getMoveKor(pKo.moveData.move);
+    if (!amIFaster && pKo && pKo.smogonMove.name !== safeKillMove.smogonMove.name) {
+      const pkName = pKo.smogonMove.name;
+      const pkKor = getMoveKor(pkName);
       reasonText = `상대보다 속도가 느려 위험할 수 있으니, 확정 선제 공격기인 ${p을를(pkKor)} 사용하는 것이 가장 안전합니다.`;
-      return {
-        action_type: "move",
-        parameter: pKo.moveData.id,
-        reason: reasonText,
-        sub_recommendation: subRecommendation,
-      };
+      return { action_type: "move", parameter: pkName, reason: reasonText, sub_recommendation: subRecommendation };
     }
 
-    return {
-      action_type: "move",
-      parameter: safeKillMove.moveData.id,
-      reason: reasonText,
-      sub_recommendation: subRecommendation,
-    };
+    return { action_type: "move", parameter: mName, reason: reasonText, sub_recommendation: subRecommendation };
   }
 
   const damagingMoves = evaluatedMoves
@@ -381,26 +375,23 @@ export function recommendBattleAction(
 
   if (damagingMoves.length > 0) {
     const bestMove = damagingMoves[0];
-    const mKor = getMoveKor(bestMove.moveData.move);
+    const mName = bestMove.smogonMove.name;
+    const mKor = getMoveKor(mName);
     let reasonText = `현재 상황에서 데미지 기대치(${bestMove.minPct.toFixed(0)}~${bestMove.maxPct.toFixed(0)}%) 대비 리스크가 적은 ${p이가(mKor)} 가장 효율적입니다.`;
 
     if (activeMoves.length - evaluatedMoves.length > 0) {
       reasonText += ` (상대의 타입/특성으로 데미지가 0이 되는 기술은 자동 제외되었습니다.)`;
     }
 
-    return {
-      action_type: "move",
-      parameter: bestMove.moveData.id,
-      reason: reasonText,
-      sub_recommendation: subRecommendation,
-    };
+    return { action_type: "move", parameter: mName, reason: reasonText, sub_recommendation: subRecommendation };
   }
 
   if (bestSwitch) {
-    const bKor = getPokeKor(bestSwitch.pokemon.details.split(",")[0]);
+    const bName = bestSwitch.pokemon.details.split(",")[0].trim();
+    const bKor = getPokeKor(bName);
     return {
       action_type: "switch",
-      parameter: bestSwitch.pokemon.ident,
+      parameter: bName,
       reason: `현재 ${p은는(myKor)} 상대 ${oppKor}에게 유효한 타격을 줄 수 없습니다. 데미지를 적게 받는 ${p으로(bKor)} 교체하는 것을 강력히 권장합니다.`,
       sub_recommendation: subRecommendation,
     };
@@ -408,14 +399,19 @@ export function recommendBattleAction(
 
   const statusMoves = evaluatedMoves.filter((m) => m.isStatus);
   if (statusMoves.length > 0) {
-    const mKor = getMoveKor(statusMoves[0].moveData.move);
+    const mName = statusMoves[0].smogonMove.name;
+    const mKor = getMoveKor(mName);
     return {
       action_type: "move",
-      parameter: statusMoves[0].moveData.id,
+      parameter: mName,
       reason: `공격 기술이 모두 무효화됩니다. 불가피하게 변화기인 ${p을를(mKor)} 사용하세요.`,
       sub_recommendation: subRecommendation,
     };
   }
 
-  return { action_type: "move", parameter: activeMoves[0]?.id ?? "", reason: "추천할 수 있는 유효한 행동이 없습니다." };
+  return {
+    action_type: "move",
+    parameter: activeMoves[0]?.move ?? "",
+    reason: "추천할 수 있는 유효한 행동이 없습니다.",
+  };
 }

@@ -23,6 +23,28 @@ const getStatusColor = (s: string) => {
   }
 };
 
+const StatBadge = ({ boost = 0 }: { boost?: number }) => {
+  if (boost === 0) {
+    return (
+      <span className="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-gray-700 text-gray-400 align-middle shadow-sm">
+        ±0
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`ml-1.5 px-1.5 py-0.5 text-[10px] rounded font-bold align-middle shadow-sm ${
+        boost > 0
+          ? "bg-red-900/60 text-red-300 border border-red-700/50"
+          : "bg-blue-900/60 text-blue-300 border border-blue-700/50"
+      }`}
+    >
+      {boost > 0 ? `+${boost}` : boost}
+    </span>
+  );
+};
+
 const HpBar = ({ condition }: { condition: string }) => {
   if (!condition || condition.includes("fnt") || condition === "0")
     return (
@@ -43,7 +65,7 @@ const HpBar = ({ condition }: { condition: string }) => {
 
   const current = parseFloat(hpMatch[1]);
   const max = parseInt(hpMatch[2], 10);
-  
+
   const percent = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
   const color = percent > 50 ? "bg-green-500" : percent > 20 ? "bg-yellow-500" : "bg-red-500";
 
@@ -56,7 +78,9 @@ const HpBar = ({ condition }: { condition: string }) => {
       </div>
       <div className="flex items-center justify-between mt-1 min-h-[20px]">
         {status ? (
-          <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-white ${getStatusColor(status)}`}>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-white ${getStatusColor(status)}`}
+          >
             {getSCKorean(status)}
           </span>
         ) : (
@@ -292,22 +316,41 @@ export default function BattlePhase(props: Props) {
               </div>
               {activePokemon.stats && (
                 <div className="pt-1">
-                  <div className="text-gray-500 mb-1 text-[11px] tracking-wide">실능치 (상태/랭크 미적용)</div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[13px]">
-                    <div className="flex justify-between">
-                      <span className="text-red-400/80">A</span> <span>{activePokemon.stats.atk}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">공격</span>
+                      <div>
+                        <span>{activePokemon.stats.atk}</span>
+                        <StatBadge boost={activePokemon.boosts?.atk} />
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-blue-400/80">C</span> <span>{activePokemon.stats.spa}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">특수공격</span>
+                      <div>
+                        <span>{activePokemon.stats.spa}</span>
+                        <StatBadge boost={activePokemon.boosts?.spa} />
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-orange-400/80">B</span> <span>{activePokemon.stats.def}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">방어</span>
+                      <div>
+                        <span>{activePokemon.stats.def}</span>
+                        <StatBadge boost={activePokemon.boosts?.def} />
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-green-400/80">D</span> <span>{activePokemon.stats.spd}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">특수방어</span>
+                      <div>
+                        <span>{activePokemon.stats.spd}</span>
+                        <StatBadge boost={activePokemon.boosts?.spd} />
+                      </div>
                     </div>
-                    <div className="flex justify-between col-span-2 border-t border-gray-800 mt-0.5 pt-0.5">
-                      <span className="text-pink-400/80">S</span> <span>{activePokemon.stats.spe}</span>
+                    <div className="flex justify-between items-center col-span-2 border-t border-gray-800 mt-0.5 pt-0.5">
+                      <span className="text-gray-400">스피드</span>
+                      <div>
+                        <span>{activePokemon.stats.spe}</span>
+                        <StatBadge boost={activePokemon.boosts?.spe} />
+                      </div>
                     </div>
                   </div>
                 </div>

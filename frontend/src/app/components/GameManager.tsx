@@ -61,7 +61,7 @@ export default function GameManager() {
         if (data.status === "room") {
           if (prevPhase === "battle") {
             setTimeout(() => setWinner((prev) => prev || "Disconnect"), 0);
-            return "battle"; 
+            return "battle";
           }
           if (prevPhase === "selection") {
             setMySelection([]);
@@ -131,7 +131,15 @@ export default function GameManager() {
             const requestJson = JSON.parse(trimmed.slice(9));
             if (requestJson?.side) {
               mySideIdRef.current = requestJson.side.id;
-              if (requestJson.side.pokemon) setMyTeam(requestJson.side.pokemon);
+              // if (requestJson.side.pokemon) setMyTeam(requestJson.side.pokemon);
+              if (requestJson.side.pokemon) {
+                setMyTeam((prev) =>
+                  requestJson.side.pokemon.map((newPkmn: any) => {
+                    const existing = prev.find((p) => p.ident === newPkmn.ident);
+                    return { ...newPkmn, boosts: existing?.boosts || {} };
+                  })
+                );
+              }
             }
             if (requestJson?.active?.[0]) {
               setActiveMoves(requestJson.active[0].moves || []);
@@ -157,9 +165,7 @@ export default function GameManager() {
           } catch (e) {
             console.error("Parse error", e);
           }
-        } 
-        
-        else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|") || trimmed.startsWith("|replace|")) {
+        } else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|") || trimmed.startsWith("|replace|")) {
           const [, , ident, details, condition] = trimmed.split("|");
           const name = details.split(",")[0].trim();
           const logIdentName = getIdentName(ident); // 닉네임/종족명 혼동 방지
@@ -170,9 +176,12 @@ export default function GameManager() {
               setOppTeam((prev) => {
                 const newTeam = [...prev];
                 const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
-                if (idx >= 0) newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt") };
-                else if (newTeam.length < 6)
-                  newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt") });
+                if (idx >= 0) {
+                  // 기존 포켓몬이 다시 나올 때 랭크업 초기화 (boosts: {})
+                  newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt"), boosts: {} };
+                } else if (newTeam.length < 6) {
+                  newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt"), boosts: {} });
+                }
                 return newTeam;
               });
             } else {
@@ -180,22 +189,32 @@ export default function GameManager() {
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
                   const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
-                  return { ...p, active: isActive, condition: isActive ? condition : p.condition };
+                  // 내 포켓몬이 교체되어 필드에 새로 나왔다면 랭크업 초기화
+                  return { ...p, active: isActive, condition: isActive ? condition : p.condition, boosts: isActive ? {} : p.boosts };
                 })
               );
             }
           }
-        } 
-        
-        else if (trimmed.startsWith("|-mega|")) {
-          if (mySideIdRef.current && trimmed.split("|")[2].startsWith(mySideIdRef.current) && !roomDataRef.current?.settings?.noLimit)
+        } else if (trimmed.startsWith("|-mega|")) {
+          if (
+            mySideIdRef.current &&
+            trimmed.split("|")[2].startsWith(mySideIdRef.current) &&
+            !roomDataRef.current?.settings?.noLimit
+          )
             setHasUsedMega(true);
         } else if (trimmed.startsWith("|-zpower|") || trimmed.startsWith("|-zburst|")) {
-          if (mySideIdRef.current && trimmed.split("|")[2].startsWith(mySideIdRef.current) && !roomDataRef.current?.settings?.noLimit)
+          if (
+            mySideIdRef.current &&
+            trimmed.split("|")[2].startsWith(mySideIdRef.current) &&
+            !roomDataRef.current?.settings?.noLimit
+          )
             setHasUsedZMove(true);
-        } 
-
-        else if (trimmed.startsWith("|-damage|") || trimmed.startsWith("|-heal|") || trimmed.startsWith("|-sethp|") || trimmed.startsWith("|faint|")) {
+        } else if (
+          trimmed.startsWith("|-damage|") ||
+          trimmed.startsWith("|-heal|") ||
+          trimmed.startsWith("|-sethp|") ||
+          trimmed.startsWith("|faint|")
+        ) {
           const parts = trimmed.split("|");
           const cmd = parts[1];
           const ident = parts[2];
@@ -209,28 +228,27 @@ export default function GameManager() {
                 if (!prev) return prev;
                 const prevIdentName = getIdentName(prev.ident);
                 return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
-                  ? { ...prev, condition, fainted: isFaint } : prev;
+                  ? { ...prev, condition, fainted: isFaint }
+                  : prev;
               });
               setOppTeam((prev) =>
                 prev.map((p) => {
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
                   return logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)
-                    ? { ...p, condition, fainted: isFaint } : p;
-                })
+                    ? { ...p, condition, fainted: isFaint }
+                    : p;
+                }),
               );
             } else {
               setMyTeam((prev) =>
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
-                  return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName) 
-                    ? { ...p, condition } : p;
-                })
+                  return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName) ? { ...p, condition } : p;
+                }),
               );
             }
           }
-        } 
-        
-        else if (trimmed.startsWith("|-status|") || trimmed.startsWith("|-curestatus|")) {
+        } else if (trimmed.startsWith("|-status|") || trimmed.startsWith("|-curestatus|")) {
           const parts = trimmed.split("|");
           const cmd = parts[1];
           const ident = parts[2];
@@ -249,24 +267,82 @@ export default function GameManager() {
                 if (!prev) return prev;
                 const prevIdentName = getIdentName(prev.ident);
                 return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
-                  ? { ...prev, condition: updateCondition(prev.condition) } : prev;
+                  ? { ...prev, condition: updateCondition(prev.condition) }
+                  : prev;
               });
               setOppTeam((prev) =>
                 prev.map((p) => {
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
                   return logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)
-                    ? { ...p, condition: updateCondition(p.condition) } : p;
-                })
+                    ? { ...p, condition: updateCondition(p.condition) }
+                    : p;
+                }),
               );
             } else {
               setMyTeam((prev) =>
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
                   return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName)
-                    ? { ...p, condition: updateCondition(p.condition) } : p;
-                })
+                    ? { ...p, condition: updateCondition(p.condition) }
+                    : p;
+                }),
               );
             }
+          }
+        } else if (trimmed.startsWith("|-boost|") || trimmed.startsWith("|-unboost|")) {
+          const parts = trimmed.split("|");
+          const cmd = parts[1]; // "-boost" 또는 "-unboost"
+          const ident = parts[2];
+          const stat = parts[3]; // atk, def, spa, spd, spe, evasion, accuracy
+          const amount = parseInt(parts[4], 10) * (cmd === "-unboost" ? -1 : 1);
+          const logIdentName = getIdentName(ident);
+
+          const applyBoost = (prevTeam: any[]) =>
+            prevTeam.map((p) => {
+              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                const currentBoosts = p.boosts || {};
+                const currentStatBoost = currentBoosts[stat] || 0;
+                return { ...p, boosts: { ...currentBoosts, [stat]: currentStatBoost + amount } };
+              }
+              return p;
+            });
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyBoost);
+            else setMyTeam(applyBoost);
+          }
+        } else if (trimmed.startsWith("|-clearallboost|")) {
+          // 흑안개 등 필드 전체 랭크업 초기화
+          setMyTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
+          setOppTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
+        } else if (trimmed.startsWith("|-clearboost|") || trimmed.startsWith("|-clearnegativeboost|")) {
+          // 클리어스모그(clear), 하얀허브(clearnegative) 등 특정 포켓몬 랭크 초기화
+          const parts = trimmed.split("|");
+          const cmd = parts[1];
+          const ident = parts[2];
+          const logIdentName = getIdentName(ident);
+
+          const clearBoosts = (prevTeam: any[]) =>
+            prevTeam.map((p) => {
+              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
+                if (cmd === "-clearboost") {
+                  return { ...p, boosts: {} };
+                } else if (cmd === "-clearnegativeboost") {
+                  const newBoosts: Record<string, number> = { ...p.boosts };
+                  for (const key in newBoosts) {
+                    if (newBoosts[key] < 0) newBoosts[key] = 0;
+                  }
+                  return { ...p, boosts: newBoosts };
+                }
+              }
+              return p;
+            });
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearBoosts);
+            else setMyTeam(clearBoosts);
           }
         }
 
@@ -356,7 +432,7 @@ export default function GameManager() {
           onRefresh={requestRoomList}
         />
       )}
-      
+
       {phase === "room" && roomData && (
         <RoomPhase
           roomData={roomData}
@@ -407,7 +483,7 @@ export default function GameManager() {
         />
       )}
 
-      <ChatInterface 
+      <ChatInterface
         phase={phase}
         roomData={roomData}
         myFullTeam={myFullTeam}
