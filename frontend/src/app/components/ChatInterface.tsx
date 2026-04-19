@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bot, Loader2, MessageCircle, X } from "lucide-react";
+import { Bot, Loader2, MessageSquare, X } from "lucide-react";
 import { Generations, calculate, Move } from "@smogon/calc";
 import { createPokemon } from "@/app/utils/PokemonFactory";
-import { trKorToEng } from "@/app/utils/Translator";
+import { trKorToEng, trEngToKor } from "@/app/utils/Translator";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
-import { trEngToKor } from "@/app/utils/Translator";
 import { recommendBattleAction } from "@/app/utils/BattleRecommender";
 
 type Message = {
@@ -191,63 +190,83 @@ export default function ChatInterface({
   if (phase === "lobby" || phase === "room") return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end">
       {isOpen && (
-        <div className="bg-white text-gray-800 w-[350px] sm:w-[400px] h-[500px] rounded-2xl shadow-2xl flex flex-col mb-4 overflow-hidden border border-gray-200">
-          <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
-            <h3 className="font-bold flex items-center gap-2">
-              <Bot size={20} /> AI 배틀 어시스턴트
+        <div className="bg-slate-900/90 backdrop-blur-2xl text-slate-200 w-[360px] sm:w-[420px] h-[520px] rounded-3xl shadow-2xl flex flex-col mb-4 overflow-hidden border border-slate-700/50 origin-bottom-right animate-in fade-in zoom-in-95 duration-200">
+          {/* 헤더 */}
+          <header className="bg-slate-800/50 border-b border-slate-700/50 p-4 flex justify-between items-center">
+            <h3 className="font-bold text-sm tracking-wide text-slate-100 flex items-center gap-2.5">
+              <span className="p-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30">
+                <Bot size={16} />
+              </span>
+              AI ASSISTANT
             </h3>
-            <button onClick={() => setIsOpen(false)} className="hover:text-gray-300">
-              <X size={20} />
+            <button
+              onClick={() => setIsOpen(false)}
+              className="text-slate-400 hover:text-slate-200 bg-white/5 hover:bg-white/10 p-1.5 rounded-lg transition-colors"
+            >
+              <X size={18} />
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          {/* 메시지 영역 */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
             {messages.length === 0 && (
-              <div className="text-center text-gray-500 text-sm mt-4">현재 상황에 맞는 추천을 받아보세요!</div>
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                <Bot size={32} className="mb-3 opacity-20" />
+                <p>전략적 분석이 필요하신가요?</p>
+                <p className="mt-1 opacity-70">하단의 버튼을 눌러 추천을 받아보세요.</p>
+              </div>
             )}
+
             {messages.map((msg, idx) => (
-              <div key={idx} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`p-3 rounded-lg text-sm whitespace-pre-wrap ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-white border shadow-sm text-gray-800"}`}
+                  className={`px-4 py-3 rounded-2xl text-xs sm:text-[13px] leading-relaxed max-w-[85%] whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-slate-100 text-slate-900 rounded-tr-sm font-medium"
+                      : "bg-slate-800/80 border border-slate-700/50 text-slate-300 rounded-tl-sm shadow-sm"
+                  }`}
                 >
                   {msg.content}
                 </div>
               </div>
             ))}
+
             {loading && (
-              <div className="flex text-gray-400 gap-2">
-                <Loader2 size={16} className="animate-spin" /> 분석 중...
+              <div className="flex items-center text-slate-400 text-xs gap-2 bg-slate-800/40 w-fit px-4 py-2.5 rounded-2xl rounded-tl-sm border border-slate-700/30">
+                <Loader2 size={14} className="animate-spin text-blue-400" />
+                <span>데이터 분석 중...</span>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-3 bg-white border-t border-gray-200">
-            <div className="flex gap-2 flex-wrap mb-2">
+          {/* 액션 버튼 영역 (이모지 제거, 미니멀리즘 적용) */}
+          <div className="p-4 bg-slate-800/30 border-t border-slate-700/50 backdrop-blur-md">
+            <div className="flex gap-2 flex-wrap">
               {phase === "selection" && (
                 <>
                   <button
                     onClick={() => handleRequest("엔트리 조합 추천해줘", buildEntryContext())}
-                    className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200 transition"
+                    className="text-[11px] font-semibold bg-slate-800 text-slate-300 hover:text-slate-100 hover:bg-slate-700 border border-slate-600/50 px-4 py-2 rounded-xl transition-all"
                   >
-                    📝 조합 추천
+                    조합 추천받기
                   </button>
                   <button
                     onClick={() => handleRequest("선봉 추천해줘", buildLeadContext())}
-                    className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full hover:bg-purple-200 transition"
+                    className="text-[11px] font-semibold bg-slate-800 text-slate-300 hover:text-slate-100 hover:bg-slate-700 border border-slate-600/50 px-4 py-2 rounded-xl transition-all"
                   >
-                    ⚔️ 선봉 추천
+                    선봉 추천받기
                   </button>
                 </>
               )}
               {phase === "battle" && (
                 <button
                   onClick={handleBattleRecommend}
-                  className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-full hover:bg-red-200 transition"
+                  className="text-[11px] font-semibold bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 hover:text-blue-300 border border-blue-500/30 px-4 py-2 rounded-xl transition-all w-full text-center"
                 >
-                  🎯 다음 행동 추천
+                  최적의 다음 행동 분석
                 </button>
               )}
             </div>
@@ -255,11 +274,18 @@ export default function ChatInterface({
         </div>
       )}
 
+      {/* FAB (플로팅 액션 버튼) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-105"
+        className={`w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center transition-all duration-300 border 
+          ${
+            isOpen
+              ? "bg-slate-800 text-slate-400 border-slate-700 rotate-90 scale-90"
+              : "bg-slate-800/80 backdrop-blur-md text-slate-200 border-slate-600 hover:bg-slate-700 hover:border-slate-500 hover:-translate-y-1"
+          }
+        `}
       >
-        {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
+        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
     </div>
   );
