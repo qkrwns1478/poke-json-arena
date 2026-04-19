@@ -23,6 +23,7 @@ export interface Pokemon {
   nickname?: string;
   types: string[];
   gender: string;
+  level: number;
   nature: string;
   ability: string;
   mega_ability?: string;
@@ -52,6 +53,7 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
     const nickname = data.nickname;
     const types = data.types || [];
     const gender = data.gender || "무성";
+    const level = data.level || 50;
     const nature = data.nature || "노력";
     const ability = data.ability;
     const item = data.item || null;
@@ -97,6 +99,9 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
     // 특성
     psFormat += `Ability: ${ability_eng}\n`;
 
+    // 레벨
+    psFormat += `Level: ${level}\n`
+
     // 노력치 (EVs)
     const evsList: string[] = [];
     if (EVs.HP > 0) evsList.push(`${EVs.HP} HP`);
@@ -132,6 +137,7 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
       nickname,
       types,
       gender,
+      level,
       nature,
       ability,
       mega_ability,
