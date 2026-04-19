@@ -86,33 +86,17 @@ export default function RoomPhase({
 
         {/* 파티 업로드 및 설정 영역 */}
         <div className="mb-6">
-          {!customTeam ? (
-            <TeamEntryManager
-              onTeamConfirm={(team) => {
-                setTeamString(team.map((p) => p.PSformat).join("\n\n"));
-                setCustomTeam(team);
-              }}
-            />
-          ) : (
-            <div className="bg-gray-900 p-4 border border-blue-500 rounded-lg flex justify-between items-center mb-4 animate-fadeIn">
-              <div className="flex gap-2 flex-wrap">
-                {customTeam.map((p, idx) => (
-                  <span key={idx} className="bg-blue-900 px-3 py-1 rounded-full text-sm font-semibold">
-                    {p.nickname || p.species_kor}
-                  </span>
-                ))}
-              </div>
-              <button
-                onClick={() => {
-                  setCustomTeam(null);
-                  setTeamString("");
-                }}
-                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
-              >
-                다시 업로드
-              </button>
-            </div>
-          )}
+          <TeamEntryManager
+            customTeam={customTeam}
+            onTeamConfirm={(team) => {
+              setTeamString(team.map((p) => p.PSformat).join("\n\n"));
+              setCustomTeam(team);
+            }}
+            onClear={() => {
+              setCustomTeam(null);
+              setTeamString("");
+            }}
+          />
 
           {!customTeam && (
             <>
