@@ -2,14 +2,14 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import { BattleStreams, Teams, Dex } from "@pkmn/sim";
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const customPath = path.resolve(__dirname, '../frontend/src/data/custom.json');
-const customData = JSON.parse(fs.readFileSync(customPath, 'utf8'));
+const customPath = path.resolve(__dirname, "../frontend/src/data/custom.json");
+const customData = JSON.parse(fs.readFileSync(customPath, "utf8"));
 
 for (const [id, data] of Object.entries(customData)) {
   Dex.data.Pokedex[id] = data;
@@ -74,12 +74,13 @@ io.on("connection", (socket) => {
       allowMega: !!settings?.allowMega,
       allowZMove: !!settings?.allowZMove,
       noLimit: !!settings?.noLimit,
+      allowRevert: !!settings?.allowRevert,
     };
     const roomId = generateRoomId();
     const room = {
       id: roomId,
       host: socket.id,
-      settings: settings,
+      settings: sanitized,
       players: {
         [socket.id]: { id: socket.id, ready: false, teamString: null, parsedTeam: null, selectedTeamIndices: null },
       },
@@ -170,19 +171,19 @@ io.on("connection", (socket) => {
     if (!roomId) return;
     const room = rooms.get(roomId);
     if (!room || !room.players[socket.id]) return;
-    
+
     if (room.status !== "room") {
       socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
       return;
     }
-    
+
     try {
       const parsedTeam = Teams.import(teamString);
       if (!parsedTeam || parsedTeam.length === 0) {
         socket.emit("log", "[오류] 올바른 팀 형식이 아닙니다.");
         return;
       }
-      
+
       room.players[socket.id].teamString = teamString;
       room.players[socket.id].parsedTeam = parsedTeam;
       socket.emit("log", "[시스템] 파티가 등록되었습니다.");
@@ -216,17 +217,13 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (!room || !room.players[socket.id]) return;
     if (room.status !== "room") return socket.emit("log", "[시스템] 대기방에서만 파티를 등록할 수 있습니다.");
-    
 
     const pKeys = Object.keys(room.players);
     if (pKeys.length !== 2) return socket.emit("log", "[시스템] 2명의 플레이어가 필요합니다.");
     if (!room.players[pKeys[0]].ready || !room.players[pKeys[1]].ready)
       return socket.emit("log", "[시스템] 모든 플레이어가 준비되지 않았습니다.");
     const fmt = room.settings.format;
-    if (
-      room.players[pKeys[0]].parsedTeam.length < fmt ||
-      room.players[pKeys[1]].parsedTeam.length < fmt
-    ) {
+    if (room.players[pKeys[0]].parsedTeam.length < fmt || room.players[pKeys[1]].parsedTeam.length < fmt) {
       return socket.emit("log", "[시스템] 팀이 포맷보다 작습니다.");
     }
 
@@ -286,12 +283,70 @@ io.on("connection", (socket) => {
     if (!room || !room.game) return;
 
     if (socket.id === room.game.p1Id) {
+      room.game.inputLog.push({ id: socket.id, cmd: actionString });
       room.game.streams.p1.write(actionString);
       socket.emit("log", `[시스템] 입력 완료: ${actionString}`);
     } else if (socket.id === room.game.p2Id) {
+      room.game.inputLog.push({ id: socket.id, cmd: actionString });
       room.game.streams.p2.write(actionString);
       socket.emit("log", `[시스템] 입력 완료: ${actionString}`);
     }
+  });
+
+  // --- 되돌리기 기능 관련 소켓 이벤트 ---
+  socket.on("request-revert", () => {
+    const roomId = playerRoomMap.get(socket.id);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+    if (!room || room.status !== "battle" || !room.game || !room.settings.allowRevert) return;
+
+    // [Fix 1] 보류 중인 되돌리기 요청의 주체(요청자)를 상태에 기록
+    room.game.pendingRevertFrom = socket.id;
+
+    const opponentId = room.game.p1Id === socket.id ? room.game.p2Id : room.game.p1Id;
+    io.to(opponentId).emit("revert-requested");
+  });
+
+  socket.on("respond-revert", (accept) => {
+    const roomId = playerRoomMap.get(socket.id);
+    if (!roomId) return;
+    const room = rooms.get(roomId);
+
+    // [Fix 1] 상태 검증 및 allowRevert 옵션 이중 체크
+    if (!room || room.status !== "battle" || !room.game) return;
+    if (!room.settings.allowRevert) return;
+
+    const opponentId = room.game.p1Id === socket.id ? room.game.p2Id : room.game.p1Id;
+
+    // [Fix 1] 본인이 "요청자의 상대방"일 때만 응답을 처리할 수 있도록 방어
+    if (room.game.pendingRevertFrom !== opponentId) return;
+    room.game.pendingRevertFrom = null; // 처리 후 즉시 초기화
+
+    if (!accept) {
+      io.to(opponentId).emit("revert-declined");
+      return;
+    }
+
+    io.to(roomId).emit("revert-accepted");
+
+    // [Fix 2] 턴 경계 마커(boundary)를 기준으로 "가장 최근 턴의 입력 묶음" 전체 제거
+    const log = room.game.inputLog;
+
+    // 1단계: 아직 입력이 안 들어간 상태에서 끝에 쌓여있을 수 있는 경계선 제거
+    while (log.length > 0 && log[log.length - 1].type === "boundary") {
+      log.pop();
+    }
+
+    // 2단계: 그 다음 경계선이 나오기 전까지의 모든 실제 입력(cmd)을 턴 단위로 통째로 제거
+    while (log.length > 0 && log[log.length - 1].type !== "boundary") {
+      log.pop();
+    }
+
+    room.game.execId = (room.game.execId || 0) + 1;
+
+    setTimeout(() => {
+      startSimGame(room, true);
+    }, 300);
   });
 });
 
@@ -300,12 +355,34 @@ function startGame(room) {
   io.to(room.id).emit("room-update", getRoomDTO(room));
 
   const pKeys = Object.keys(room.players);
-  const p1Id = pKeys[0],
-    p2Id = pKeys[1];
-  const p1Data = room.players[p1Id];
-  const p2Data = room.players[p2Id];
+  room.game = {
+    streams: null,
+    p1Id: pKeys[0],
+    p2Id: pKeys[1],
+    seed: [
+      Math.floor(Math.random() * 65536),
+      Math.floor(Math.random() * 65536),
+      Math.floor(Math.random() * 65536),
+      Math.floor(Math.random() * 65536),
+    ], // 고정 시드
+    inputLog: [],
+    execId: 1, // 실행 인스턴스 ID 부여
+  };
 
-  // 선택된 인덱스를 바탕으로 서브 팀 생성
+  io.to(room.game.p1Id).emit("match-found", { sideId: "p1" });
+  io.to(room.game.p2Id).emit("match-found", { sideId: "p2" });
+  io.to(room.id).emit("log", "[시스템] 배틀을 시작합니다!");
+
+  startSimGame(room, false);
+}
+
+function startSimGame(room, isReplay) {
+  io.to(room.game.p1Id).emit("match-found", { sideId: "p1" });
+  io.to(room.game.p2Id).emit("match-found", { sideId: "p2" });
+
+  const p1Data = room.players[room.game.p1Id];
+  const p2Data = room.players[room.game.p2Id];
+
   const p1SubTeam = p1Data.selectedTeamIndices.map((i) => p1Data.parsedTeam[i]);
   const p2SubTeam = p2Data.selectedTeamIndices.map((i) => p2Data.parsedTeam[i]);
 
@@ -314,30 +391,54 @@ function startGame(room) {
 
   const stream = new BattleStreams.BattleStream();
   const streams = BattleStreams.getPlayerStreams(stream);
+  room.game.streams = streams;
 
-  room.game = { streams, p1Id, p2Id };
+  const currentExecId = room.game.execId;
 
-  io.to(p1Id).emit("match-found", { sideId: "p1" });
-  io.to(p2Id).emit("match-found", { sideId: "p2" });
-
-  io.to(p1Id).emit("log", "[시스템] 배틀을 시작합니다!");
-  io.to(p2Id).emit("log", "[시스템] 배틀을 시작합니다!");
-
+  // [Fix 3] 옵셔널 체이닝(room.game?.execId) 적용으로 NPE(TypeError) 방지
   (async () => {
     for await (const chunk of streams.p1) {
-      if (chunk.trim()) io.to(p1Id).emit("battle-log", chunk);
+      if (room.game?.execId !== currentExecId) break;
+      if (chunk.trim()) io.to(room.game.p1Id).emit("battle-log", chunk);
     }
   })();
 
   (async () => {
     for await (const chunk of streams.p2) {
-      if (chunk.trim()) io.to(p2Id).emit("battle-log", chunk);
+      if (room.game?.execId !== currentExecId) break;
+      if (chunk.trim()) io.to(room.game.p2Id).emit("battle-log", chunk);
     }
   })();
 
-  streams.omniscient.write(`>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview" })}`);
+  // [Fix 2] omniscient 스트림을 읽어 턴 경계(boundary) 마커를 inputLog에 삽입
+  (async () => {
+    for await (const chunk of streams.omniscient) {
+      if (room.game?.execId !== currentExecId) break;
+
+      // |turn|(일반 턴 시작), |upkeep|(기절 후 강제 교체), |teampreview(선봉 선택)를 감지
+      if (chunk.includes("\n|turn|") || chunk.includes("\n|upkeep|") || chunk.includes("|teampreview")) {
+        const log = room.game.inputLog;
+        // 연속으로 boundary가 들어가지 않도록 방어
+        if (log.length === 0 || log[log.length - 1].type !== "boundary") {
+          log.push({ type: "boundary" });
+        }
+      }
+    }
+  })();
+
+  streams.omniscient.write(
+    `>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview", seed: room.game.seed })}`,
+  );
   streams.omniscient.write(`>player p1 ${JSON.stringify({ name: "Player 1", team: p1Packed })}`);
   streams.omniscient.write(`>player p2 ${JSON.stringify({ name: "Player 2", team: p2Packed })}`);
+
+  if (isReplay) {
+    for (const input of room.game.inputLog) {
+      if (input.type === "boundary") continue; // [Fix 2] 마커 객체는 엔진에 전달하지 않음
+      if (input.id === room.game.p1Id) streams.p1.write(input.cmd);
+      if (input.id === room.game.p2Id) streams.p2.write(input.cmd);
+    }
+  }
 }
 
 server.listen(3001, () => {

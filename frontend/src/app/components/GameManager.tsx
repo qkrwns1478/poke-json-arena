@@ -14,6 +14,11 @@ import BattlePhase from "./phases/BattlePhase";
 export default function GameManager() {
   const [phase, setPhase] = useState<"lobby" | "room" | "selection" | "battle">("lobby");
 
+  // Revert State
+  const [revertRequest, setRevertRequest] = useState<boolean>(false);
+  const [isWaitingRevert, setIsWaitingRevert] = useState<boolean>(false);
+  const [revertToast, setRevertToast] = useState<string | null>(null);
+
   // Room State
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const roomDataRef = useRef<RoomData | null>(null);
@@ -137,13 +142,13 @@ export default function GameManager() {
                   requestJson.side.pokemon.map((newPkmn: any) => {
                     const newName = getIdentName(newPkmn.ident || "");
                     const existing = prev.find((p) => getIdentName(p.ident || "") === newName);
-                    
-                    return { 
-                      ...newPkmn, 
-                      boosts: existing?.boosts || {}, 
-                      multipliers: existing?.multipliers || {} 
+
+                    return {
+                      ...newPkmn,
+                      boosts: existing?.boosts || {},
+                      multipliers: existing?.multipliers || {},
                     };
-                  })
+                  }),
                 );
               }
             }
@@ -174,18 +179,31 @@ export default function GameManager() {
         } else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|") || trimmed.startsWith("|replace|")) {
           const [, , ident, details, condition] = trimmed.split("|");
           const name = details.split(",")[0].trim();
-          const logIdentName = getIdentName(ident); // 닉네임/종족명 혼동 방지
+          const logIdentName = getIdentName(ident);
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt") });
+              // 1. 상대 현재 포켓몬 강제 덮어쓰기 보장
+              setOppActive((prev) => ({
+                ...prev,
+                ident,
+                name,
+                details,
+                condition,
+                revealed: true,
+                fainted: condition.includes("fnt"),
+              }));
+
+              // 2. 상대 파티(Roster)에 강제 추가 보장
               setOppTeam((prev) => {
                 const newTeam = [...prev];
                 const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
+
                 if (idx >= 0) {
-                  // 기존 포켓몬이 다시 나올 때 랭크업 초기화 (boosts: {})
+                  // 기존 포켓몬 갱신
                   newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt"), boosts: {} };
-                } else if (newTeam.length < 6) {
+                } else {
+                  // length 검사를 제거하여 튕기는 현상 없이 무조건 추가되도록 보장
                   newTeam.push({
                     ident,
                     name,
@@ -203,7 +221,6 @@ export default function GameManager() {
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
                   const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
-                  // 내 포켓몬이 교체되어 필드에 새로 나왔다면 랭크업 초기화
                   return {
                     ...p,
                     active: isActive,
@@ -456,6 +473,22 @@ export default function GameManager() {
       if (newLogs.length > 0) setLogs((prev) => [...prev, ...newLogs]);
     });
 
+    socket.current.on("revert-requested", () => {
+      setRevertRequest(true);
+    });
+
+    socket.current.on("revert-declined", () => {
+      setIsWaitingRevert(false);
+      setRevertToast("상대방이 되돌리기를 거절했습니다.");
+    });
+
+    socket.current.on("revert-accepted", () => {
+      setIsWaitingRevert(false);
+      setRevertToast(null);
+      resetBattleState();
+      setLogs(["[시스템] 되돌리기가 수락되었습니다. 데이터를 동기화합니다..."]);
+    });
+
     return () => {
       if (socket.current) socket.current.disconnect();
     };
@@ -522,6 +555,16 @@ export default function GameManager() {
     setHasUsedZMove(false);
   };
 
+  const requestRevert = () => {
+    setIsWaitingRevert(true);
+    socket.current?.emit("request-revert");
+  };
+
+  const respondRevert = (accept: boolean) => {
+    setRevertRequest(false);
+    socket.current?.emit("respond-revert", accept);
+  };
+
   // Render Router
   return (
     <>
@@ -581,6 +624,12 @@ export default function GameManager() {
           selectedAction={selectedAction}
           sendAction={sendAction}
           onLeave={leaveRoom}
+          requestRevert={requestRevert}
+          revertRequest={revertRequest}
+          respondRevert={respondRevert}
+          isWaitingRevert={isWaitingRevert}
+          revertToast={revertToast}
+          clearRevertToast={() => setRevertToast(null)}
         />
       )}
 

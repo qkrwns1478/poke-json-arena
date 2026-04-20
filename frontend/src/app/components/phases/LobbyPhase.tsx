@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AvailableRoom, RoomSettings } from "@/app/types/battle";
-import { Plus, RefreshCcw, Info } from "lucide-react";
+import { Plus, RefreshCw, Info } from "lucide-react";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
 interface Props {
@@ -35,6 +35,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
     allowMega: true,
     allowZMove: true,
     noLimit: false,
+    allowRevert: false,
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -100,7 +101,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               />
             </div>
 
-            <div className="flex justify-between items-center py-3">
+            <div className="flex justify-between items-center py-3 border-b border-slate-700/50">
               <div className="flex items-center gap-1.5 relative group">
                 <span className="text-slate-300 font-medium text-sm">기믹 제한 해제</span>
                 <Info className="w-3.5 h-3.5 text-slate-800 cursor-help transition-colors group-hover:text-slate-400" />
@@ -121,6 +122,17 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               <ToggleSwitch
                 checked={createSettings.noLimit}
                 onChange={(c) => setCreateSettings({ ...createSettings, noLimit: c })}
+                activeColor="bg-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-between items-center py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-300 font-medium text-sm">되돌리기 허용</span>
+              </div>
+              <ToggleSwitch
+                checked={createSettings.allowRevert}
+                onChange={(c) => setCreateSettings({ ...createSettings, allowRevert: c })}
                 activeColor="bg-blue-500"
               />
             </div>
@@ -152,7 +164,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-700/50 transition-colors focus:outline-none"
               title="새로고침"
             >
-              <RefreshCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-slate-100" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-slate-100" : ""}`} />
             </button>
           </div>
 
@@ -178,6 +190,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                       {room.settings.allowMega && <span>MEGA</span>}
                       {room.settings.allowZMove && <span>Z-MOVE</span>}
                       {room.settings.noLimit && <span>NO-LIMIT</span>}
+                      {room.settings.allowRevert && <span>REVERT</span>}
                     </div>
                   </div>
                   <button

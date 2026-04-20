@@ -3,6 +3,7 @@ export interface RoomSettings {
   allowMega: boolean;
   allowZMove: boolean;
   noLimit: boolean;
+  allowRevert: boolean;
 }
 export interface RoomData {
   id: string;
