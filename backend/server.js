@@ -280,7 +280,7 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
-    if (!room || !room.game || room.game.isDestroyed) return;
+    if (!room || !room.game) return;
 
     if (socket.id === room.game.p1Id) {
       room.game.inputLog.push({ id: socket.id, cmd: actionString });
@@ -300,6 +300,9 @@ io.on("connection", (socket) => {
     const room = rooms.get(roomId);
     if (!room || room.status !== "battle" || !room.game || !room.settings.allowRevert) return;
 
+    // [Fix 1] 보류 중인 되돌리기 요청의 주체(요청자)를 상태에 기록
+    room.game.pendingRevertFrom = socket.id;
+
     const opponentId = room.game.p1Id === socket.id ? room.game.p2Id : room.game.p1Id;
     io.to(opponentId).emit("revert-requested");
   });
@@ -308,9 +311,16 @@ io.on("connection", (socket) => {
     const roomId = playerRoomMap.get(socket.id);
     if (!roomId) return;
     const room = rooms.get(roomId);
+
+    // [Fix 1] 상태 검증 및 allowRevert 옵션 이중 체크
     if (!room || room.status !== "battle" || !room.game) return;
+    if (!room.settings.allowRevert) return;
 
     const opponentId = room.game.p1Id === socket.id ? room.game.p2Id : room.game.p1Id;
+
+    // [Fix 1] 본인이 "요청자의 상대방"일 때만 응답을 처리할 수 있도록 방어
+    if (room.game.pendingRevertFrom !== opponentId) return;
+    room.game.pendingRevertFrom = null; // 처리 후 즉시 초기화
 
     if (!accept) {
       io.to(opponentId).emit("revert-declined");
@@ -319,24 +329,21 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("revert-accepted");
 
-    // 이전 턴 행동 취소 (양쪽의 마지막 입력 하나씩 제거)
-    let p1Removed = false,
-      p2Removed = false;
-    for (let i = room.game.inputLog.length - 1; i >= 0; i--) {
-      if (!p1Removed && room.game.inputLog[i].id === room.game.p1Id) {
-        room.game.inputLog.splice(i, 1);
-        p1Removed = true;
-      } else if (!p2Removed && room.game.inputLog[i].id === room.game.p2Id) {
-        room.game.inputLog.splice(i, 1);
-        p2Removed = true;
-      }
-      if (p1Removed && p2Removed) break;
+    // [Fix 2] 턴 경계 마커(boundary)를 기준으로 "가장 최근 턴의 입력 묶음" 전체 제거
+    const log = room.game.inputLog;
+
+    // 1단계: 아직 입력이 안 들어간 상태에서 끝에 쌓여있을 수 있는 경계선 제거
+    while (log.length > 0 && log[log.length - 1].type === "boundary") {
+      log.pop();
     }
 
-    // 기존 게임 인스턴스의 스트림 구독을 완전히 끊기 위해 execId 증가
+    // 2단계: 그 다음 경계선이 나오기 전까지의 모든 실제 입력(cmd)을 턴 단위로 통째로 제거
+    while (log.length > 0 && log[log.length - 1].type !== "boundary") {
+      log.pop();
+    }
+
     room.game.execId = (room.game.execId || 0) + 1;
 
-    // 프론트엔드의 React 상태가 초기화될 시간을 주기 위해 약간의 지연 후 배틀 재시작
     setTimeout(() => {
       startSimGame(room, true);
     }, 300);
@@ -388,17 +395,34 @@ function startSimGame(room, isReplay) {
 
   const currentExecId = room.game.execId;
 
+  // [Fix 3] 옵셔널 체이닝(room.game?.execId) 적용으로 NPE(TypeError) 방지
   (async () => {
     for await (const chunk of streams.p1) {
-      if (room.game.execId !== currentExecId) break;
+      if (room.game?.execId !== currentExecId) break;
       if (chunk.trim()) io.to(room.game.p1Id).emit("battle-log", chunk);
     }
   })();
 
   (async () => {
     for await (const chunk of streams.p2) {
-      if (room.game.execId !== currentExecId) break;
+      if (room.game?.execId !== currentExecId) break;
       if (chunk.trim()) io.to(room.game.p2Id).emit("battle-log", chunk);
+    }
+  })();
+
+  // [Fix 2] omniscient 스트림을 읽어 턴 경계(boundary) 마커를 inputLog에 삽입
+  (async () => {
+    for await (const chunk of streams.omniscient) {
+      if (room.game?.execId !== currentExecId) break;
+
+      // |turn|(일반 턴 시작), |upkeep|(기절 후 강제 교체), |teampreview(선봉 선택)를 감지
+      if (chunk.includes("\n|turn|") || chunk.includes("\n|upkeep|") || chunk.includes("|teampreview")) {
+        const log = room.game.inputLog;
+        // 연속으로 boundary가 들어가지 않도록 방어
+        if (log.length === 0 || log[log.length - 1].type !== "boundary") {
+          log.push({ type: "boundary" });
+        }
+      }
     }
   })();
 
@@ -410,6 +434,7 @@ function startSimGame(room, isReplay) {
 
   if (isReplay) {
     for (const input of room.game.inputLog) {
+      if (input.type === "boundary") continue; // [Fix 2] 마커 객체는 엔진에 전달하지 않음
       if (input.id === room.game.p1Id) streams.p1.write(input.cmd);
       if (input.id === room.game.p2Id) streams.p2.write(input.cmd);
     }
