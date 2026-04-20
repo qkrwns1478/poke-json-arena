@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AvailableRoom, RoomSettings } from "@/app/types/battle";
-import { Plus, RefreshCcw, Info } from "lucide-react";
+import { Plus, RefreshCw, Info } from "lucide-react";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
 interface Props {
@@ -164,7 +164,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-700/50 transition-colors focus:outline-none"
               title="새로고침"
             >
-              <RefreshCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-slate-100" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-slate-100" : ""}`} />
             </button>
           </div>
 

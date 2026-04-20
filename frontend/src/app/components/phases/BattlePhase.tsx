@@ -139,6 +139,7 @@ interface Props {
   requestRevert: () => void;
   revertRequest: boolean;
   respondRevert: (accept: boolean) => void;
+  isWaitingRevert: boolean;
 }
 
 export default function BattlePhase(props: Props) {
@@ -169,6 +170,7 @@ export default function BattlePhase(props: Props) {
     requestRevert,
     revertRequest,
     respondRevert,
+    isWaitingRevert,
   } = props;
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -205,6 +207,18 @@ export default function BattlePhase(props: Props) {
           </div>
         </div>
       )}
+
+      {isWaitingRevert && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 p-8 rounded-2xl border border-sky-500/30 shadow-2xl max-w-sm w-full text-center flex flex-col items-center">
+            {/* 로딩 스피너 애니메이션 */}
+            <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <h3 className="text-xl font-bold text-slate-100 mb-2">수락 대기 중</h3>
+            <p className="text-slate-300 text-sm">상대방의 응답을 기다리고 있습니다...</p>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen p-6 md:p-8 flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto">
         {/* 좌측 패널: 전장 & 로그 */}
         <div className="flex-1 flex flex-col h-auto xl:h-[85vh] min-h-0 gap-4">
