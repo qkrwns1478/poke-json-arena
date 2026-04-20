@@ -14,6 +14,9 @@ import BattlePhase from "./phases/BattlePhase";
 export default function GameManager() {
   const [phase, setPhase] = useState<"lobby" | "room" | "selection" | "battle">("lobby");
 
+  // Revert State
+  const [revertRequest, setRevertRequest] = useState<boolean>(false);
+
   // Room State
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const roomDataRef = useRef<RoomData | null>(null);
@@ -137,13 +140,13 @@ export default function GameManager() {
                   requestJson.side.pokemon.map((newPkmn: any) => {
                     const newName = getIdentName(newPkmn.ident || "");
                     const existing = prev.find((p) => getIdentName(p.ident || "") === newName);
-                    
-                    return { 
-                      ...newPkmn, 
-                      boosts: existing?.boosts || {}, 
-                      multipliers: existing?.multipliers || {} 
+
+                    return {
+                      ...newPkmn,
+                      boosts: existing?.boosts || {},
+                      multipliers: existing?.multipliers || {},
                     };
-                  })
+                  }),
                 );
               }
             }
@@ -456,6 +459,19 @@ export default function GameManager() {
       if (newLogs.length > 0) setLogs((prev) => [...prev, ...newLogs]);
     });
 
+    socket.current.on("revert-requested", () => {
+      setRevertRequest(true);
+    });
+
+    socket.current.on("revert-declined", () => {
+      alert("상대방이 되돌리기를 거절했습니다.");
+    });
+
+    socket.current.on("revert-accepted", () => {
+      resetBattleState();
+      setLogs(["[시스템] 되돌리기가 수락되었습니다. 데이터를 동기화합니다..."]);
+    });
+
     return () => {
       if (socket.current) socket.current.disconnect();
     };
@@ -522,6 +538,15 @@ export default function GameManager() {
     setHasUsedZMove(false);
   };
 
+  const requestRevert = () => {
+    socket.current?.emit("request-revert");
+  };
+
+  const respondRevert = (accept: boolean) => {
+    setRevertRequest(false);
+    socket.current?.emit("respond-revert", accept);
+  };
+
   // Render Router
   return (
     <>
@@ -581,6 +606,9 @@ export default function GameManager() {
           selectedAction={selectedAction}
           sendAction={sendAction}
           onLeave={leaveRoom}
+          requestRevert={requestRevert}
+          revertRequest={revertRequest}
+          respondRevert={respondRevert}
         />
       )}
 

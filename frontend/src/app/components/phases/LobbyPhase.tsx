@@ -35,6 +35,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
     allowMega: true,
     allowZMove: true,
     noLimit: false,
+    allowRevert: false,
   });
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -100,7 +101,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               />
             </div>
 
-            <div className="flex justify-between items-center py-3">
+            <div className="flex justify-between items-center py-3 border-b border-slate-700/50">
               <div className="flex items-center gap-1.5 relative group">
                 <span className="text-slate-300 font-medium text-sm">기믹 제한 해제</span>
                 <Info className="w-3.5 h-3.5 text-slate-800 cursor-help transition-colors group-hover:text-slate-400" />
@@ -121,6 +122,17 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
               <ToggleSwitch
                 checked={createSettings.noLimit}
                 onChange={(c) => setCreateSettings({ ...createSettings, noLimit: c })}
+                activeColor="bg-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-between items-center py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-300 font-medium text-sm">되돌리기 허용</span>
+              </div>
+              <ToggleSwitch
+                checked={createSettings.allowRevert}
+                onChange={(c) => setCreateSettings({ ...createSettings, allowRevert: c })}
                 activeColor="bg-blue-500"
               />
             </div>
