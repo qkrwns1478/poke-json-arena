@@ -190,6 +190,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                       {room.settings.allowMega && <span>MEGA</span>}
                       {room.settings.allowZMove && <span>Z-MOVE</span>}
                       {room.settings.noLimit && <span>NO-LIMIT</span>}
+                      {room.settings.allowRevert && <span>REVERT</span>}
                     </div>
                   </div>
                   <button

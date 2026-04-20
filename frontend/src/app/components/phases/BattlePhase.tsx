@@ -140,6 +140,8 @@ interface Props {
   revertRequest: boolean;
   respondRevert: (accept: boolean) => void;
   isWaitingRevert: boolean;
+  revertToast?: string | null;
+  clearRevertToast?: () => void;
 }
 
 export default function BattlePhase(props: Props) {
@@ -171,7 +173,19 @@ export default function BattlePhase(props: Props) {
     revertRequest,
     respondRevert,
     isWaitingRevert,
+    revertToast,
+    clearRevertToast,
   } = props;
+
+  useEffect(() => {
+    if (revertToast && clearRevertToast) {
+      const timer = setTimeout(() => {
+        clearRevertToast();
+      }, 3000); // 3초 뒤 자동 닫힘
+      return () => clearTimeout(timer);
+    }
+  }, [revertToast, clearRevertToast]);
+
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => logsEndRef.current?.scrollIntoView({ behavior: "smooth" }), [logs]);
@@ -180,6 +194,23 @@ export default function BattlePhase(props: Props) {
 
   return (
     <>
+      {/* --- 거절 알림 토스트 (Toast Banner) --- */}
+      {revertToast && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-rose-500/90 text-white px-6 py-3 rounded-xl shadow-xl border border-rose-400/50 flex items-center gap-3 backdrop-blur-md">
+            <svg className="w-5 h-5 text-rose-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-sm tracking-wide">{revertToast}</span>
+          </div>
+        </div>
+      )}
+
       {/* 상대방이 되돌리기를 요청했을 때 뜨는 모달 */}
       {revertRequest && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">

@@ -17,6 +17,7 @@ export default function GameManager() {
   // Revert State
   const [revertRequest, setRevertRequest] = useState<boolean>(false);
   const [isWaitingRevert, setIsWaitingRevert] = useState<boolean>(false);
+  const [revertToast, setRevertToast] = useState<string | null>(null);
 
   // Room State
   const [roomData, setRoomData] = useState<RoomData | null>(null);
@@ -478,11 +479,12 @@ export default function GameManager() {
 
     socket.current.on("revert-declined", () => {
       setIsWaitingRevert(false);
-      alert("상대방이 되돌리기를 거절했습니다.");
+      setRevertToast("상대방이 되돌리기를 거절했습니다.");
     });
 
     socket.current.on("revert-accepted", () => {
       setIsWaitingRevert(false);
+      setRevertToast(null);
       resetBattleState();
       setLogs(["[시스템] 되돌리기가 수락되었습니다. 데이터를 동기화합니다..."]);
     });
@@ -626,6 +628,8 @@ export default function GameManager() {
           revertRequest={revertRequest}
           respondRevert={respondRevert}
           isWaitingRevert={isWaitingRevert}
+          revertToast={revertToast}
+          clearRevertToast={() => setRevertToast(null)}
         />
       )}
 
