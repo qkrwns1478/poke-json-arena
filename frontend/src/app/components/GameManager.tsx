@@ -177,18 +177,31 @@ export default function GameManager() {
         } else if (trimmed.startsWith("|switch|") || trimmed.startsWith("|drag|") || trimmed.startsWith("|replace|")) {
           const [, , ident, details, condition] = trimmed.split("|");
           const name = details.split(",")[0].trim();
-          const logIdentName = getIdentName(ident); // 닉네임/종족명 혼동 방지
+          const logIdentName = getIdentName(ident);
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt") });
+              // 1. 상대 현재 포켓몬 강제 덮어쓰기 보장
+              setOppActive((prev) => ({
+                ...prev,
+                ident,
+                name,
+                details,
+                condition,
+                revealed: true,
+                fainted: condition.includes("fnt"),
+              }));
+
+              // 2. 상대 파티(Roster)에 강제 추가 보장
               setOppTeam((prev) => {
                 const newTeam = [...prev];
                 const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
+
                 if (idx >= 0) {
-                  // 기존 포켓몬이 다시 나올 때 랭크업 초기화 (boosts: {})
+                  // 기존 포켓몬 갱신
                   newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt"), boosts: {} };
-                } else if (newTeam.length < 6) {
+                } else {
+                  // length 검사를 제거하여 튕기는 현상 없이 무조건 추가되도록 보장
                   newTeam.push({
                     ident,
                     name,
@@ -206,7 +219,6 @@ export default function GameManager() {
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
                   const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
-                  // 내 포켓몬이 교체되어 필드에 새로 나왔다면 랭크업 초기화
                   return {
                     ...p,
                     active: isActive,

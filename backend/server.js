@@ -333,11 +333,13 @@ io.on("connection", (socket) => {
       if (p1Removed && p2Removed) break;
     }
 
-    // 기존 게임 인스턴스 무효화
-    room.game.isDestroyed = true;
+    // 기존 게임 인스턴스의 스트림 구독을 완전히 끊기 위해 execId 증가
+    room.game.execId = (room.game.execId || 0) + 1;
 
-    // 배틀 재시작 및 시뮬레이터 재생 (Replay)
-    startSimGame(room, true);
+    // 프론트엔드의 React 상태가 초기화될 시간을 주기 위해 약간의 지연 후 배틀 재시작
+    setTimeout(() => {
+      startSimGame(room, true);
+    }, 300);
   });
 });
 
@@ -355,9 +357,9 @@ function startGame(room) {
       Math.floor(Math.random() * 65536),
       Math.floor(Math.random() * 65536),
       Math.floor(Math.random() * 65536),
-    ], // 고정 시드 생성
-    inputLog: [], // 플레이어 입력 히스토리
-    isDestroyed: false,
+    ], // 고정 시드
+    inputLog: [],
+    execId: 1, // 실행 인스턴스 ID 부여
   };
 
   io.to(room.game.p1Id).emit("match-found", { sideId: "p1" });
@@ -368,7 +370,9 @@ function startGame(room) {
 }
 
 function startSimGame(room, isReplay) {
-  room.game.isDestroyed = false;
+  io.to(room.game.p1Id).emit("match-found", { sideId: "p1" });
+  io.to(room.game.p2Id).emit("match-found", { sideId: "p2" });
+
   const p1Data = room.players[room.game.p1Id];
   const p2Data = room.players[room.game.p2Id];
 
@@ -381,33 +385,33 @@ function startSimGame(room, isReplay) {
   const stream = new BattleStreams.BattleStream();
   const streams = BattleStreams.getPlayerStreams(stream);
   room.game.streams = streams;
-  const currentInstance = room.game; // 클로저용 참조
+
+  const currentExecId = room.game.execId;
 
   (async () => {
     for await (const chunk of streams.p1) {
-      if (currentInstance.isDestroyed) break;
-      if (chunk.trim()) io.to(currentInstance.p1Id).emit("battle-log", chunk);
+      if (room.game.execId !== currentExecId) break;
+      if (chunk.trim()) io.to(room.game.p1Id).emit("battle-log", chunk);
     }
   })();
 
   (async () => {
     for await (const chunk of streams.p2) {
-      if (currentInstance.isDestroyed) break;
-      if (chunk.trim()) io.to(currentInstance.p2Id).emit("battle-log", chunk);
+      if (room.game.execId !== currentExecId) break;
+      if (chunk.trim()) io.to(room.game.p2Id).emit("battle-log", chunk);
     }
   })();
 
   streams.omniscient.write(
-    `>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview", seed: currentInstance.seed })}`,
+    `>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview", seed: room.game.seed })}`,
   );
   streams.omniscient.write(`>player p1 ${JSON.stringify({ name: "Player 1", team: p1Packed })}`);
   streams.omniscient.write(`>player p2 ${JSON.stringify({ name: "Player 2", team: p2Packed })}`);
 
-  // 되돌리기 후 재현일 경우 기록된 명령 재실행
   if (isReplay) {
-    for (const input of currentInstance.inputLog) {
-      if (input.id === currentInstance.p1Id) streams.p1.write(input.cmd);
-      if (input.id === currentInstance.p2Id) streams.p2.write(input.cmd);
+    for (const input of room.game.inputLog) {
+      if (input.id === room.game.p1Id) streams.p1.write(input.cmd);
+      if (input.id === room.game.p2Id) streams.p2.write(input.cmd);
     }
   }
 }
