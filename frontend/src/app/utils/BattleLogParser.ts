@@ -97,6 +97,10 @@ const parseBattleLog = (line: string): string | null => {
       return `📉 ${unboostPkmn}의 ${unboostStat}${josa} 떨어졌다!`;
     case "-clearallboost":
       return `✨ 모든 랭크 변화가 원래대로 돌아갔다!`;
+    case "-clearpositiveboost":
+      const clearPosPkmn = trEngToKor(parts[2].split(": ")[1]);
+      josa = postposition.pick(clearPosPkmn, "의");
+      return `📉 ${clearPosPkmn}${josa} 올라간 능력치가 원래대로 돌아갔다!`;
     case "-ability":
       const abilityPkmn = trEngToKor(parts[2].split(": ")[1]);
       const ability = trEngToKor(parts[3], "ABILITY");

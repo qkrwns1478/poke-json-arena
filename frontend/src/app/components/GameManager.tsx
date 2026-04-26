@@ -352,8 +352,11 @@ export default function GameManager() {
           // 흑안개 등 필드 전체 랭크업 초기화
           setMyTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
           setOppTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
-        } else if (trimmed.startsWith("|-clearboost|") || trimmed.startsWith("|-clearnegativeboost|")) {
-          // 클리어스모그(clear), 하얀허브(clearnegative) 등 특정 포켓몬 랭크 초기화
+        } else if (
+          trimmed.startsWith("|-clearboost|") ||
+          trimmed.startsWith("|-clearnegativeboost|") ||
+          trimmed.startsWith("|-clearpositiveboost|")
+        ) {
           const parts = trimmed.split("|");
           const cmd = parts[1];
           const ident = parts[2];
@@ -364,11 +367,17 @@ export default function GameManager() {
               const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                 if (cmd === "-clearboost") {
-                  return { ...p, boosts: {} };
+                  return { ...p, boosts: {} }; // 모든 랭크 초기화
                 } else if (cmd === "-clearnegativeboost") {
                   const newBoosts: Record<string, number> = { ...p.boosts };
                   for (const key in newBoosts) {
-                    if (newBoosts[key] < 0) newBoosts[key] = 0;
+                    if (newBoosts[key] < 0) newBoosts[key] = 0; // 하락한 랭크만 0으로
+                  }
+                  return { ...p, boosts: newBoosts };
+                } else if (cmd === "-clearpositiveboost") {
+                  const newBoosts: Record<string, number> = { ...p.boosts };
+                  for (const key in newBoosts) {
+                    if (newBoosts[key] > 0) newBoosts[key] = 0; // 상승한 랭크만 0으로
                   }
                   return { ...p, boosts: newBoosts };
                 }
