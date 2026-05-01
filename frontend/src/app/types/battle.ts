@@ -49,4 +49,5 @@ export interface MoveData {
   move: string;
   id: string;
   disabled?: boolean;
+  target?: string;
 }

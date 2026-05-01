@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
 import { getSCKorean } from "@/app/utils/StatusCondition";
 import { trEngToKor, trEngToKeb } from "@/app/utils/Translator";
@@ -144,6 +144,23 @@ interface Props {
   isWaitingRevert: boolean;
   revertToast?: string | null;
   clearRevertToast?: () => void;
+  // Doubles
+  isDoubles?: boolean;
+  oppActives?: OppPokemon[];
+  activeMovesBySlot?: MoveData[][];
+  doublesActions?: (string | null)[];
+  doublesSelectedActions?: ({ type: string; index: number } | null)[];
+  focusedSlot?: number;
+  setFocusedSlot?: (n: number) => void;
+  forceSwitch?: boolean[];
+  canMegaEvoBySlot?: boolean[];
+  canZMoveBySlot?: boolean[];
+  zMovesBySlot?: ({ move: string; target?: string }[] | null)[];
+  isMegaCheckedBySlot?: boolean[];
+  isZMoveCheckedBySlot?: boolean[];
+  setIsMegaCheckedForSlot?: (slot: number, v: boolean) => void;
+  setIsZMoveCheckedForSlot?: (slot: number, v: boolean) => void;
+  sendDoubleAction?: (slot: number, cmd: string) => void;
 }
 
 export default function BattlePhase(props: Props) {
@@ -177,13 +194,31 @@ export default function BattlePhase(props: Props) {
     isWaitingRevert,
     revertToast,
     clearRevertToast,
+    isDoubles = false,
+    oppActives = [],
+    activeMovesBySlot = [[], []],
+    doublesActions = [null, null],
+    doublesSelectedActions = [null, null],
+    focusedSlot = 0,
+    setFocusedSlot,
+    forceSwitch = [],
+    canMegaEvoBySlot = [false, false],
+    canZMoveBySlot = [false, false],
+    zMovesBySlot = [null, null],
+    isMegaCheckedBySlot = [false, false],
+    isZMoveCheckedBySlot = [false, false],
+    setIsMegaCheckedForSlot,
+    setIsZMoveCheckedForSlot,
+    sendDoubleAction,
   } = props;
+
+  const [pendingMoveCmd, setPendingMoveCmd] = useState<string | null>(null);
 
   useEffect(() => {
     if (revertToast && clearRevertToast) {
       const timer = setTimeout(() => {
         clearRevertToast();
-      }, 3000); // 3초 뒤 자동 닫힘
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [revertToast, clearRevertToast]);
@@ -192,7 +227,61 @@ export default function BattlePhase(props: Props) {
 
   useEffect(() => logsEndRef.current?.scrollIntoView({ behavior: "smooth" }), [logs]);
 
-  const activePokemon = myTeam.find((p) => p.active);
+  const activePokemons = myTeam.filter((p) => p.active);
+  const activePokemon = isDoubles ? (activePokemons[focusedSlot] ?? activePokemons[0] ?? null) : (activePokemons[0] ?? null);
+
+  // 더블: 포커스된 슬롯의 기술/메가/Z기술 정보
+  const currentMoves = isDoubles ? (activeMovesBySlot[focusedSlot] || []) : activeMoves;
+  const currentCanMegaEvo = isDoubles ? (canMegaEvoBySlot[focusedSlot] ?? false) : canMegaEvo;
+  const currentCanZMove = isDoubles ? (canZMoveBySlot[focusedSlot] ?? false) : canZMove;
+  const currentZMoves = isDoubles ? (zMovesBySlot[focusedSlot] ?? null) : zMoves;
+  const currentIsMegaChecked = isDoubles ? (isMegaCheckedBySlot[focusedSlot] ?? false) : isMegaChecked;
+  const currentIsZMoveChecked = isDoubles ? (isZMoveCheckedBySlot[focusedSlot] ?? false) : isZMoveChecked;
+  const currentSlotAction = isDoubles ? doublesActions[focusedSlot] : selectedAction ? "set" : null;
+  const currentSlotSelectedAction = isDoubles ? doublesSelectedActions[focusedSlot] : selectedAction;
+
+  // 더블: 입력이 필요한 슬롯 목록
+  const inputSlots: number[] = isDoubles
+    ? forceSwitch.length > 0
+      ? forceSwitch.map((v, i) => (v ? i : -1)).filter((i) => i >= 0)
+      : [0, 1]
+    : [];
+
+  const handleMoveClick = (idx: number) => {
+    if (isDoubles && sendDoubleAction) {
+      let cmd = `move ${idx + 1}`;
+      if (currentIsMegaChecked) cmd += " mega";
+      if (currentIsZMoveChecked) cmd += " zmove";
+      const t = currentMoves[idx]?.target;
+      // 단일 타겟 기술은 대상 선택 UI 표시 (PS! 포지션: +1=상대a, +2=상대b)
+      if (t === "normal" || t === "adjacentFoe" || t === "any") {
+        setPendingMoveCmd(cmd);
+      } else {
+        // self / allAdjacent / allAdjacentFoes / adjacentAlly 등은
+        // 타겟 지정 없이 전송 → PS!가 자동 처리
+        sendDoubleAction(focusedSlot, cmd);
+      }
+    } else {
+      sendAction("move", idx + 1);
+    }
+  };
+
+  const handleSwitchClick = (idx: number) => {
+    if (isDoubles && sendDoubleAction) {
+      sendDoubleAction(focusedSlot, `switch ${idx + 1}`);
+    } else {
+      sendAction("switch", idx + 1);
+    }
+  };
+
+  const handleSetFocusedSlot = (n: number) => {
+    setPendingMoveCmd(null);
+    setFocusedSlot?.(n);
+  };
+
+  const hasAnyAction = isDoubles
+    ? doublesActions.some((a) => a !== null)
+    : !!selectedAction;
 
   return (
     <>
@@ -274,70 +363,141 @@ export default function BattlePhase(props: Props) {
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row gap-4 shrink-0">
-            {/* 상대 포켓몬 카드 */}
-            <div className="flex-1 bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-rose-500/20 shadow-lg relative">
-              <div className="text-xs text-rose-400 mb-3 font-black tracking-widest">OPPONENT</div>
-              {oppActive ? (
-                <div className="flex items-center gap-5">
-                  <div className={`sprite-${toSpriteKey(oppActive.name)} scale-125 opacity-90`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-lg font-bold text-slate-100 tracking-tight">{trEngToKor(oppActive.name)}</div>
-                    <HpBar condition={oppActive.condition} />
-                    {oppSideConditions.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2.5">
-                        {oppSideConditions.map((c, i) => (
-                          <span
-                            key={i}
-                            className="text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 px-2 py-0.5 rounded"
-                          >
-                            {c}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          <div className="flex flex-col gap-3 shrink-0">
+            {/* 상대 포켓몬 카드 (싱글: 1장, 더블: 2장) */}
+            <div className={`grid gap-3 ${isDoubles ? "grid-cols-2" : "grid-cols-1"}`}>
+              {isDoubles ? (
+                [0, 1].map((slot) => {
+                  const opp = oppActives[slot];
+                  return (
+                    <div key={slot} className="bg-slate-800/40 backdrop-blur-md p-4 rounded-2xl border border-rose-500/20 shadow-lg">
+                      <div className="text-xs text-rose-400 mb-2 font-black tracking-widest">OPP {slot + 1}</div>
+                      {opp ? (
+                        <div className="flex items-center gap-3">
+                          <div className={`sprite-${toSpriteKey(opp.name)} scale-110 opacity-90 shrink-0`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-slate-100 truncate">{trEngToKor(opp.name)}</div>
+                            <HpBar condition={opp.condition} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-600 text-xs h-[60px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
+                          대기 중...
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
-                <div className="text-slate-500 text-base font-medium h-[90px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
-                  대기 중...
+                <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-rose-500/20 shadow-lg relative">
+                  <div className="text-xs text-rose-400 mb-3 font-black tracking-widest">OPPONENT</div>
+                  {oppActive ? (
+                    <div className="flex items-center gap-5">
+                      <div className={`sprite-${toSpriteKey(oppActive.name)} scale-125 opacity-90`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-lg font-bold text-slate-100 tracking-tight">{trEngToKor(oppActive.name)}</div>
+                        <HpBar condition={oppActive.condition} />
+                        {oppSideConditions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2.5">
+                            {oppSideConditions.map((c, i) => (
+                              <span key={i} className="text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 px-2 py-0.5 rounded">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 text-base font-medium h-[90px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
+                      대기 중...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* 내 포켓몬 카드 */}
-            <div className="flex-1 bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-blue-500/20 shadow-lg relative">
-              <div className="text-xs text-blue-400 mb-3 font-black tracking-widest">MY ACTIVE</div>
-              {activePokemon ? (
-                <div className="flex items-center gap-5">
-                  <div
-                    className={`sprite-${toSpriteKey(activePokemon.details.split(",")[0])} scale-125 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-lg font-bold text-slate-100 tracking-tight">
-                      {trEngToKor(activePokemon.details.split(",")[0])}
-                    </div>
-                    <HpBar condition={activePokemon.condition} />
-                    {mySideConditions.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2.5">
-                        {mySideConditions.map((c, i) => (
-                          <span
-                            key={i}
-                            className="text-xs font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-300 px-2 py-0.5 rounded"
-                          >
-                            {c}
-                          </span>
-                        ))}
+            {/* 내 포켓몬 카드 (싱글: 1장, 더블: 2장) */}
+            <div className={`grid gap-3 ${isDoubles ? "grid-cols-2" : "grid-cols-1"}`}>
+              {isDoubles ? (
+                [0, 1].map((slot) => {
+                  const myActive = activePokemons[slot];
+                  const isFocused = focusedSlot === slot;
+                  const hasAction = doublesActions[slot] !== null || doublesSelectedActions[slot] !== null;
+                  const needsInput = inputSlots.includes(slot);
+                  return (
+                    <button
+                      key={slot}
+                      onClick={() => needsInput && handleSetFocusedSlot(slot)}
+                      className={`bg-slate-800/40 backdrop-blur-md p-4 rounded-2xl border shadow-lg text-left transition-all ${
+                        hasAction
+                          ? "border-emerald-500/40 bg-emerald-900/10"
+                          : isFocused && needsInput
+                            ? "border-blue-500/50 bg-blue-900/10"
+                            : "border-blue-500/20"
+                      } ${needsInput ? "cursor-pointer hover:border-blue-400/50" : "cursor-default"}`}
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="text-xs text-blue-400 font-black tracking-widest">MY {slot + 1}</div>
+                        {hasAction && <span className="text-[10px] font-black text-emerald-400 tracking-widest">✓ 선택됨</span>}
+                        {!hasAction && isFocused && needsInput && <span className="text-[10px] font-black text-blue-400 tracking-widest">▶ 선택 중</span>}
                       </div>
-                    )}
-                  </div>
-                </div>
+                      {myActive ? (
+                        <div className="flex items-center gap-3">
+                          <div className={`sprite-${toSpriteKey(myActive.details.split(",")[0])} scale-110 shrink-0 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-bold text-slate-100 truncate">{trEngToKor(myActive.details.split(",")[0])}</div>
+                            <HpBar condition={myActive.condition} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-600 text-xs h-[60px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
+                          대기 중...
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
               ) : (
-                <div className="text-slate-500 text-base font-medium h-[90px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
-                  대기 중...
+                <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-blue-500/20 shadow-lg relative">
+                  <div className="text-xs text-blue-400 mb-3 font-black tracking-widest">MY ACTIVE</div>
+                  {activePokemon ? (
+                    <div className="flex items-center gap-5">
+                      <div className={`sprite-${toSpriteKey(activePokemon.details.split(",")[0])} scale-125 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-lg font-bold text-slate-100 tracking-tight">{trEngToKor(activePokemon.details.split(",")[0])}</div>
+                        <HpBar condition={activePokemon.condition} />
+                        {mySideConditions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2.5">
+                            {mySideConditions.map((c, i) => (
+                              <span key={i} className="text-xs font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-300 px-2 py-0.5 rounded">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 text-base font-medium h-[90px] flex items-center justify-center border border-slate-700/50 border-dashed rounded-xl">
+                      대기 중...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* 더블: 사이드 상태 (스크린 등) */}
+            {isDoubles && (oppSideConditions.length > 0 || mySideConditions.length > 0) && (
+              <div className="flex flex-wrap gap-2">
+                {oppSideConditions.map((c, i) => (
+                  <span key={`opp-${i}`} className="text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-300 px-2 py-0.5 rounded">OPP: {c}</span>
+                ))}
+                {mySideConditions.map((c, i) => (
+                  <span key={`my-${i}`} className="text-xs font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-300 px-2 py-0.5 rounded">MY: {c}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 배틀 로그 */}
@@ -495,25 +655,30 @@ export default function BattlePhase(props: Props) {
               {/* 기술 (Moves) 컨테이너 */}
               <div className="bg-slate-800/40 backdrop-blur-md p-6 rounded-2xl border border-slate-700/50">
                 <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-sm font-bold tracking-widest text-slate-400">MOVES</h3>
+                  <h3 className="text-sm font-bold tracking-widest text-slate-400">
+                    MOVES{isDoubles ? ` — MY ${focusedSlot + 1}` : ""}
+                  </h3>
                   <div className="flex gap-2">
-                    {roomData?.settings?.allowRevert && (
+                    {roomData?.settings?.allowRevert && !isDoubles && (
                       <button
                         type="button"
                         onClick={requestRevert}
-                        disabled={!!selectedAction}
+                        disabled={hasAnyAction}
                         className="text-xs flex items-center gap-1.5 font-bold px-3 py-2 rounded-lg transition-all border bg-slate-900/50 text-sky-400 border-sky-500/30 hover:bg-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         REVERT
                       </button>
                     )}
-                    {canMegaEvo && (!hasUsedMega || roomData?.settings?.noLimit) && !hasUsedZMove && (
+                    {currentCanMegaEvo && (!hasUsedMega || roomData?.settings?.noLimit) && !hasUsedZMove && (
                       <button
                         type="button"
-                        disabled={!!selectedAction}
-                        onClick={() => setIsMegaChecked(!isMegaChecked)}
+                        disabled={!!currentSlotSelectedAction}
+                        onClick={() => {
+                          if (isDoubles && setIsMegaCheckedForSlot) setIsMegaCheckedForSlot(focusedSlot, !currentIsMegaChecked);
+                          else setIsMegaChecked(!currentIsMegaChecked);
+                        }}
                         className={`text-xs flex items-center gap-1.5 font-bold px-3 py-2 rounded-lg transition-all border ${
-                          isMegaChecked
+                          currentIsMegaChecked
                             ? "bg-purple-500/20 text-purple-400 border-purple-500/50"
                             : "bg-slate-900/50 text-slate-400 border-slate-700/50 hover:text-slate-200"
                         }`}
@@ -522,13 +687,16 @@ export default function BattlePhase(props: Props) {
                         메가진화
                       </button>
                     )}
-                    {canZMove && (!hasUsedZMove || roomData?.settings?.noLimit) && !hasUsedMega && (
+                    {currentCanZMove && (!hasUsedZMove || roomData?.settings?.noLimit) && !currentIsMegaChecked && (
                       <button
                         type="button"
-                        disabled={!!selectedAction}
-                        onClick={() => setIsZMoveChecked(!isZMoveChecked)}
+                        disabled={!!currentSlotSelectedAction}
+                        onClick={() => {
+                          if (isDoubles && setIsZMoveCheckedForSlot) setIsZMoveCheckedForSlot(focusedSlot, !currentIsZMoveChecked);
+                          else setIsZMoveChecked(!currentIsZMoveChecked);
+                        }}
                         className={`text-xs flex items-center gap-1.5 font-bold px-3 py-2 rounded-lg transition-all border ${
-                          isZMoveChecked
+                          currentIsZMoveChecked
                             ? "bg-amber-500/20 text-amber-400 border-amber-500/50"
                             : "bg-slate-900/50 text-slate-400 border-slate-700/50 hover:text-slate-200"
                         }`}
@@ -541,16 +709,16 @@ export default function BattlePhase(props: Props) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  {activeMoves.length > 0 ? (
-                    activeMoves.map((m, idx) => {
-                      const isSelected = selectedAction?.type === "move" && selectedAction?.index === idx + 1;
-                      const isZ = isZMoveChecked && !!zMoves?.[idx];
-                      const disabled = m.disabled || !!selectedAction || (isZMoveChecked && !isZ);
+                  {currentMoves.length > 0 ? (
+                    currentMoves.map((m, idx) => {
+                      const isSelected = currentSlotSelectedAction?.type === "move" && currentSlotSelectedAction?.index === idx + 1;
+                      const isZ = currentIsZMoveChecked && !!currentZMoves?.[idx];
+                      const disabled = m.disabled || !!currentSlotSelectedAction || (currentIsZMoveChecked && !isZ);
 
                       return (
                         <button
                           key={idx}
-                          onClick={() => sendAction("move", idx + 1)}
+                          onClick={() => handleMoveClick(idx)}
                           disabled={disabled}
                           className={`p-4 rounded-xl font-bold text-sm md:text-base tracking-wide shadow-sm flex justify-center items-center relative transition-all duration-200 border
                           ${
@@ -563,7 +731,7 @@ export default function BattlePhase(props: Props) {
                           ${disabled ? "opacity-40 grayscale cursor-not-allowed hover:bg-slate-700/40 hover:border-slate-600/50" : ""}`}
                         >
                           <span className={isSelected ? "opacity-0" : "opacity-100 transition-opacity"}>
-                            {trEngToKor(isZ ? zMoves[idx].move : m.move, "MOVES")}
+                            {trEngToKor(isZ ? currentZMoves![idx].move : m.move, "MOVES")}
                           </span>
                           {isSelected && (
                             <span className="absolute inset-0 flex items-center justify-center font-black animate-pulse">
@@ -579,6 +747,45 @@ export default function BattlePhase(props: Props) {
                     </div>
                   )}
                 </div>
+
+                {/* 더블 배틀 대상 선택 */}
+                {isDoubles && pendingMoveCmd && (
+                  <div className="mt-4 p-4 bg-slate-900/60 rounded-xl border border-amber-500/30">
+                    <div className="text-xs font-bold text-amber-400 mb-3 tracking-widest">대상 선택</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[0, 1].map((slot) => {
+                        const opp = oppActives[slot];
+                        const isFainted = !opp || opp.fainted || opp.condition?.includes("fnt");
+                        return (
+                          <button
+                            key={slot}
+                            disabled={isFainted}
+                            onClick={() => {
+                              sendDoubleAction!(focusedSlot, `${pendingMoveCmd} ${slot + 1}`);
+                              setPendingMoveCmd(null);
+                            }}
+                            className={`p-3 rounded-xl text-sm font-bold border transition-all ${
+                              isFainted
+                                ? "opacity-30 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500"
+                                : "bg-rose-500/15 border-rose-500/30 text-rose-300 hover:bg-rose-500/25"
+                            }`}
+                          >
+                            상대 {slot + 1}
+                            {opp && !isFainted && (
+                              <div className="text-[10px] font-normal mt-0.5 text-rose-400/70">{trEngToKor(opp.name)}</div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setPendingMoveCmd(null)}
+                      className="mt-2 w-full p-2 rounded-xl text-xs font-bold border border-slate-600 text-slate-400 hover:bg-slate-700/50 transition-all"
+                    >
+                      취소
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 교체 (Switch) 컨테이너 */}
@@ -588,14 +795,14 @@ export default function BattlePhase(props: Props) {
                   {myTeam.map((p, idx) => {
                     const name = p.details.split(",")[0];
                     const isDead = p.condition === "0 fnt";
-                    const isSelected = selectedAction?.type === "switch" && selectedAction?.index === idx + 1;
+                    const isSelected = currentSlotSelectedAction?.type === "switch" && currentSlotSelectedAction?.index === idx + 1;
 
                     return (
                       <button
                         key={idx}
-                        onClick={() => sendAction("switch", idx + 1)}
-                        disabled={p.active || isDead || !!selectedAction}
-                        className={`p-3 rounded-xl flex flex-col justify-center border relative transition-all duration-200 
+                        onClick={() => handleSwitchClick(idx)}
+                        disabled={p.active || isDead || !!currentSlotSelectedAction}
+                        className={`p-3 rounded-xl flex flex-col justify-center border relative transition-all duration-200
                         ${
                           isSelected
                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
@@ -604,8 +811,8 @@ export default function BattlePhase(props: Props) {
                               : isDead
                                 ? "bg-slate-900/40 border-slate-800 text-slate-600 opacity-50"
                                 : "bg-slate-800/60 border-slate-700 hover:bg-slate-700 text-slate-200 hover:border-slate-500"
-                        } 
-                        ${selectedAction && !isSelected ? "opacity-50 cursor-not-allowed" : ""}`}
+                        }
+                        ${currentSlotSelectedAction && !isSelected ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <div className="flex justify-between items-center w-full px-2">
                           <div className="flex gap-3 items-center">
