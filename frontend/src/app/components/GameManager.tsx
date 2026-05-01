@@ -136,12 +136,14 @@ export default function GameManager() {
             const requestJson = JSON.parse(trimmed.slice(9));
             if (requestJson?.side) {
               mySideIdRef.current = requestJson.side.id;
-              // if (requestJson.side.pokemon) setMyTeam(requestJson.side.pokemon);
               if (requestJson.side.pokemon) {
                 setMyTeam((prev) =>
                   requestJson.side.pokemon.map((newPkmn: any) => {
                     const newName = getIdentName(newPkmn.ident || "");
-                    const existing = prev.find((p) => getIdentName(p.ident || "") === newName);
+                    const existing = prev.find((p) => {
+                      const prevName = getIdentName(p.ident || "");
+                      return prevName.startsWith(newName) || newName.startsWith(prevName);
+                    });
 
                     return {
                       ...newPkmn,
@@ -245,6 +247,41 @@ export default function GameManager() {
             !roomDataRef.current?.settings?.noLimit
           )
             setHasUsedZMove(true);
+        } else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
+          const parts = trimmed.split("|");
+          const ident = parts[2];
+          const details = parts[3];
+          const name = details.split(",")[0].trim();
+          const logIdentName = getIdentName(ident);
+
+          if (mySideIdRef.current) {
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppActive((prev) => {
+                if (!prev) return prev;
+                const prevIdentName = getIdentName(prev.ident);
+                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
+                  ? { ...prev, ident, details, name }
+                  : prev;
+              });
+              setOppTeam((prev) =>
+                prev.map((p) => {
+                  const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                  return logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)
+                    ? { ...p, ident, details, name }
+                    : p;
+                })
+              );
+            } else {
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = getIdentName(p.ident);
+                  return logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName)
+                    ? { ...p, ident, details }
+                    : p;
+                })
+              );
+            }
+          }
         } else if (
           trimmed.startsWith("|-damage|") ||
           trimmed.startsWith("|-heal|") ||

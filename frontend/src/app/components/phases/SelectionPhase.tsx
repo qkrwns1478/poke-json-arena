@@ -64,7 +64,7 @@ export default function SelectionPhase({
                 key={idx}
                 className="p-4 border border-slate-700/30 bg-slate-900/40 rounded-2xl flex flex-col items-center justify-center h-28 opacity-80 mix-blend-luminosity hover:mix-blend-normal transition-all duration-300"
               >
-                <div className={`sprite-${p.toLowerCase().replaceAll(" ", "-")} transform scale-110 mb-3`} />
+                <div className={`sprite-${p.toLowerCase().replaceAll(" ", "-").replaceAll("’", "")} transform scale-110 mb-3`} />
                 <span className="font-semibold text-xs text-slate-400 tracking-wide">{trEngToKor(p)}</span>
               </div>
             ))}
@@ -100,7 +100,7 @@ export default function SelectionPhase({
                     ${isSubmitted ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <div
-                    className={`sprite-${p.toLowerCase().replaceAll(" ", "-")} transform scale-110 mb-3 transition-transform ${isSelected ? "scale-125" : ""}`}
+                    className={`sprite-${p.toLowerCase().replaceAll(" ", "-").replaceAll("’", "")} transform scale-110 mb-3 transition-transform ${isSelected ? "scale-125" : ""}`}
                   />
                   <span
                     className={`font-semibold text-xs tracking-wide ${isSelected ? "text-emerald-400" : "text-slate-300"}`}

@@ -109,7 +109,9 @@ const toSpriteKey = (name: string) =>
   name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/^-|-$/g, "")
+    .replaceAll("'", "")
+    .replaceAll("’", "");
 
 // --- Component ---
 interface Props {

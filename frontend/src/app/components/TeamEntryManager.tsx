@@ -74,7 +74,7 @@ export const TeamEntryManager = ({ customTeam, onTeamConfirm, onClear }: Props) 
                     {p.nickname && <span className="text-[11px] text-slate-400">{p.species_kor}</span>}
                   </div>
                   <div
-                    className={`sprite-${p.species_eng.toLowerCase().replace(" ", "-")} origin-top-right opacity-90 group-hover:opacity-100 transition-opacity`}
+                    className={`sprite-${p.species_eng.toLowerCase().replace(" ", "-").replaceAll("'", "")} origin-top-right opacity-90 group-hover:opacity-100 transition-opacity`}
                   ></div>
                 </div>
 

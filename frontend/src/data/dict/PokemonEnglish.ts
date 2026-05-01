@@ -864,6 +864,7 @@ const POKEMON_ENG: string[] = [
   "Perrserker",
   "Cursola",
   "Sirfetch'd",
+  "Sirfetch’d",
   "Mr. Rime",
   "Runerigus",
   "Milcery",

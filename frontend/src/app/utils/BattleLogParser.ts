@@ -115,6 +115,19 @@ const parseBattleLog = (line: string): string | null => {
       const josa1 = postposition.pick(getItemPkmn, "는");
       const josa2 = postposition.pick(getItem, "를");
       return `🎒 ${getItemPkmn}${josa1} ${getItem}${josa2} 가지게 되었다!`;
+    case "-activate":
+      const actPkmn = trEngToKor(parts[2].split(": ")[1]);
+      if (parts[3] && parts[3].includes("ability: Disguise")) {
+        josa = postposition.pick(actPkmn, "의");
+        return `✨ ${actPkmn}${josa} 탈이 공격을 대신 받았다!`;
+      }
+      return null;
+    case "detailschange":
+    case "-formechange":
+      const formPkmn = trEngToKor(parts[2].split(": ")[1]);
+      const newForm = trEngToKor(parts[3].split(",")[0]);
+      josa = postposition.pick(formPkmn, "는");
+      return `🔄 ${formPkmn}${josa} ${newForm}(으)로 모습이 바뀌었다!`;
     default:
       return null;
   }
