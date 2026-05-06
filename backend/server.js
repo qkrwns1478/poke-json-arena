@@ -5,6 +5,7 @@ import { BattleStreams, Teams, Dex } from "@pkmn/sim";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { applyDisguisePatch } from "./patches/disguisePatch.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,8 @@ const customData = JSON.parse(fs.readFileSync(customPath, "utf8"));
 for (const [id, data] of Object.entries(customData)) {
   Dex.data.Pokedex[id] = data;
 }
+
+applyDisguisePatch(Dex);
 
 const app = express();
 const server = http.createServer(app);
@@ -70,7 +73,7 @@ io.on("connection", (socket) => {
   // 1. 방 만들기
   socket.on("create-room", (settings) => {
     const sanitized = {
-      format: settings?.format === 6 ? 6 : 3,
+      format: [3, 4, 6].includes(settings?.format) ? settings.format : 3,
       allowMega: !!settings?.allowMega,
       allowZMove: !!settings?.allowZMove,
       noLimit: !!settings?.noLimit,
@@ -426,8 +429,10 @@ function startSimGame(room, isReplay) {
     }
   })();
 
+  const gameFormat = room.settings.format === 4 ? "gen9doublescustomgame" : "gen9customgame";
+
   streams.omniscient.write(
-    `>start ${JSON.stringify({ formatid: "gen9customgame@@@!teampreview", seed: room.game.seed })}`,
+    `>start ${JSON.stringify({ formatid: `${gameFormat}@@@!teampreview`, seed: room.game.seed })}`,
   );
   streams.omniscient.write(`>player p1 ${JSON.stringify({ name: "Player 1", team: p1Packed })}`);
   streams.omniscient.write(`>player p2 ${JSON.stringify({ name: "Player 2", team: p2Packed })}`);

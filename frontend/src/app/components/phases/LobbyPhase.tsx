@@ -73,6 +73,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                 onChange={(e) => setCreateSettings({ ...createSettings, format: Number(e.target.value) })}
               >
                 <option value={3}>3v3 싱글</option>
+                <option value={4}>4v4 더블</option>
                 <option value={6}>6v6 싱글</option>
               </select>
             </div>
@@ -185,7 +186,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                     </span>
                     <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1 font-medium tracking-wide">
                       <span className="bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
-                        {room.settings.format}v{room.settings.format}
+                        {room.settings.format === 4 ? "4v4 더블" : `${room.settings.format}v${room.settings.format} 싱글`}
                       </span>
                       {room.settings.allowMega && <span>MEGA</span>}
                       {room.settings.allowZMove && <span>Z-MOVE</span>}

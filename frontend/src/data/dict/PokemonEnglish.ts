@@ -1035,9 +1035,10 @@ const POKEMON_ENG: string[] = [
   "Rotom-Mow",
   "Samurott-Hisui",
   "Chandelure-Mega",
-  "Mimikyu-Bisguised",
+  "Mimikyu-Disguised",
   "Mimikyu-Busted",
   "Mimikyu-Mane",
+  "Mimikyu-Mane-Busted",
   "Aldina",
   "Almaria",
 ];

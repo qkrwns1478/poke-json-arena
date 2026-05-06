@@ -51,9 +51,45 @@ export default function GameManager() {
   const [hasUsedMega, setHasUsedMega] = useState(false);
   const [hasUsedZMove, setHasUsedZMove] = useState(false);
 
+  // Doubles State
+  const [oppActives, setOppActives] = useState<OppPokemon[]>([]);
+  const [activeMovesBySlot, setActiveMovesBySlot] = useState<MoveData[][]>([[], []]);
+  const [doublesActions, setDoublesActionsState] = useState<(string | null)[]>([null, null]);
+  const doublesActionsRef = useRef<(string | null)[]>([null, null]);
+  const [doublesSelectedActions, setDoublesSelectedActions] = useState<({ type: string; index: number } | null)[]>([null, null]);
+  const [focusedSlot, setFocusedSlot] = useState<number>(0);
+  const [forceSwitch, setForceSwitchState] = useState<boolean[]>([]);
+  const forceSwitchRef = useRef<boolean[]>([]);
+  const [activeSlotCount, setActiveSlotCountState] = useState<number>(1);
+  const activeSlotCountRef = useRef<number>(1);
+  const [canMegaEvoBySlot, setCanMegaEvoBySlot] = useState<boolean[]>([false, false]);
+  const [canZMoveBySlot, setCanZMoveBySlot] = useState<boolean[]>([false, false]);
+  const [zMovesBySlot, setZMovesBySlot] = useState<({ move: string; target?: string }[] | null)[]>([null, null]);
+  const [isMegaCheckedBySlot, setIsMegaCheckedBySlot] = useState<boolean[]>([false, false]);
+  const [isZMoveCheckedBySlot, setIsZMoveCheckedBySlot] = useState<boolean[]>([false, false]);
+
   const mySideIdRef = useRef<string>("");
+  const pendingFormChangesRef = useRef<Record<string, string>>({});
 
   const socket = useRef<Socket | null>(null);
+
+  // Doubles sync helpers
+  const setDoublesActions = (actions: (string | null)[]) => {
+    doublesActionsRef.current = actions;
+    setDoublesActionsState(actions);
+  };
+  const setForceSwitch = (fs: boolean[]) => {
+    forceSwitchRef.current = fs;
+    setForceSwitchState(fs);
+  };
+  const setActiveSlotCount = (n: number) => {
+    activeSlotCountRef.current = n;
+    setActiveSlotCountState(n);
+  };
+  const getSlotIndex = (ident: string) => {
+    const sideId = ident.split(":")[0];
+    return sideId[sideId.length - 1] === "b" ? 1 : 0;
+  };
 
   useEffect(() => {
     socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL);
@@ -105,6 +141,49 @@ export default function GameManager() {
 
       const getIdentName = (identStr: string) => identStr.substring(identStr.indexOf(":") + 1).trim();
 
+      // 같은 청크에서 form change / transform이 |request|보다 앞에 오지만 myTeam이 빈 경우를 대비해
+      // 청크 전체를 미리 스캔해 내 측 form change를 기록해둠 (따라큐 탈 특성 등)
+      // |-transform|은 Imposter(탈 특성)·변신 기술 모두에서 발생하는 이벤트임 (|detailschange|가 아님)
+      const chunkFormChanges: Record<string, string> = {};
+      const chunkOppSwitchDetails: Record<string, string> = {};
+      for (const line of lines) {
+        const t = line.trim();
+        if (!mySideIdRef.current) continue;
+
+        // 상대 교체 정보 수집 (|-transform| 시 상대 세부 정보 조회용)
+        if (t.startsWith("|switch|") || t.startsWith("|drag|") || t.startsWith("|replace|")) {
+          const pts = t.split("|");
+          const chIdent = pts[2];
+          const chDetails = pts[3];
+          if (chIdent && chDetails && !chIdent.startsWith(mySideIdRef.current)) {
+            chunkOppSwitchDetails[getIdentName(chIdent)] = chDetails;
+          }
+        }
+
+        // |detailschange| / |-formechange| (메가진화, 폼 체인지 등)
+        if (t.startsWith("|detailschange|") || t.startsWith("|-formechange|")) {
+          const pts = t.split("|");
+          const chIdent = pts[2];
+          const chDetails = pts[3];
+          if (chIdent && chDetails && chIdent.startsWith(mySideIdRef.current)) {
+            chunkFormChanges[getIdentName(chIdent)] = chDetails;
+          }
+        }
+
+        // |-transform| (탈 특성·변신 기술) — 내 포켓몬이 변신한 경우
+        if (t.startsWith("|-transform|")) {
+          const pts = t.split("|");
+          const chTransformer = pts[2]; // "p1a: Ditto"
+          const chTarget = pts[3];      // "p2a: Charizard"
+          if (chTransformer && chTarget && chTransformer.startsWith(mySideIdRef.current)) {
+            const myName = getIdentName(chTransformer);    // "Ditto"
+            const targetName = getIdentName(chTarget);     // "Charizard"
+            // 같은 청크에 상대 switch가 있으면 성별 포함 details 사용, 없으면 이름만 사용
+            chunkFormChanges[myName] = chunkOppSwitchDetails[targetName] || targetName;
+          }
+        }
+      }
+
       lines.forEach((line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
@@ -147,6 +226,9 @@ export default function GameManager() {
 
                     return {
                       ...newPkmn,
+                      details: newPkmn.active
+                        ? (chunkFormChanges[newName] || pendingFormChangesRef.current[newName] || existing?.details || newPkmn.details)
+                        : newPkmn.details,
                       boosts: existing?.boosts || {},
                       multipliers: existing?.multipliers || {},
                     };
@@ -154,26 +236,107 @@ export default function GameManager() {
                 );
               }
             }
-            if (requestJson?.active?.[0]) {
-              setActiveMoves(requestJson.active[0].moves || []);
-              setCanMegaEvo(!!requestJson.active[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true));
-              if (requestJson.active[0].canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)) {
-                setCanZMove(true);
-                setZMoves(requestJson.active[0].canZMove);
-              } else {
+
+            const activeArr: any[] = requestJson?.active || [];
+            const fs: boolean[] = requestJson?.forceSwitch || [];
+            const slotCount = activeArr.length > 0 ? activeArr.length : fs.length > 0 ? fs.length : 1;
+
+            if (roomDataRef.current?.settings?.format === 4) {
+              console.log("[DBL REQUEST] slotCount:", slotCount, "wait:", requestJson.wait, "fs:", fs);
+              console.log("[DBL REQUEST] active:", JSON.stringify(activeArr));
+              console.log("[DBL REQUEST] side.pokemon[0]:", requestJson.side?.pokemon?.[0]?.condition, requestJson.side?.pokemon?.[0]?.ident);
+              console.log("[DBL REQUEST] side.pokemon[1]:", requestJson.side?.pokemon?.[1]?.condition, requestJson.side?.pokemon?.[1]?.ident);
+            }
+
+            setActiveSlotCount(slotCount);
+            setForceSwitch(fs);
+
+            if (slotCount > 1) {
+              // 더블배틀
+              // side.pokemon[i]의 condition으로 기절 여부를 판단해 해당 슬롯의 기술 목록 제거
+              const isSlotFainted = (i: number) =>
+                requestJson.side.pokemon?.[i]?.condition?.includes("fnt") ?? false;
+
+              const newMovesBySlot = activeArr.map((a: any, i: number) => {
+                if (!a || isSlotFainted(i)) return [];
+                return a.moves || [];
+              });
+              setActiveMovesBySlot(newMovesBySlot);
+              setActiveMoves(newMovesBySlot[0] || []);
+
+              const newMegaBySlot = activeArr.map((a: any, i: number) =>
+                !isSlotFainted(i) && !!a?.canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true)
+              );
+              setCanMegaEvoBySlot(newMegaBySlot);
+              setCanMegaEvo(newMegaBySlot[0] || false);
+
+              const newZBySlot = activeArr.map((a: any, i: number) => {
+                if (isSlotFainted(i)) return null;
+                if (a?.canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)) return a.canZMove;
+                return null;
+              });
+              setZMovesBySlot(newZBySlot);
+              setCanZMoveBySlot(newZBySlot.map((z: any) => z !== null));
+              setCanZMove(newZBySlot[0] !== null);
+              setZMoves(newZBySlot[0]);
+            } else {
+              // 싱글배틀 (기존 로직) 또는 더블이지만 포켓몬 1마리만 남은 경우
+              if (activeArr[0]) {
+                setActiveMoves(activeArr[0].moves || []);
+                setCanMegaEvo(!!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true));
+                if (activeArr[0].canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)) {
+                  setCanZMove(true);
+                  setZMoves(activeArr[0].canZMove);
+                } else {
+                  setCanZMove(false);
+                  setZMoves(null);
+                }
+                // 더블이지만 1마리만 남은 경우: slot 1의 기술 목록을 비워 입력 대기 목록에서 제외
+                if (roomDataRef.current?.settings?.format === 4) {
+                  setActiveMovesBySlot([activeArr[0].moves || [], []]);
+                  setCanMegaEvoBySlot([
+                    !!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true),
+                    false,
+                  ]);
+                  const z0 = activeArr[0].canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)
+                    ? activeArr[0].canZMove : null;
+                  setZMovesBySlot([z0, null]);
+                  setCanZMoveBySlot([z0 !== null, false]);
+                }
+              } else if (fs.length === 0) {
+                setActiveMoves([]);
+                setCanMegaEvo(false);
                 setCanZMove(false);
                 setZMoves(null);
+                if (roomDataRef.current?.settings?.format === 4) {
+                  setActiveMovesBySlot([[], []]);
+                  setCanMegaEvoBySlot([false, false]);
+                  setZMovesBySlot([null, null]);
+                  setCanZMoveBySlot([false, false]);
+                }
               }
-            } else {
-              setActiveMoves([]);
-              setCanMegaEvo(false);
-              setCanZMove(false);
-              setZMoves(null);
             }
+
             if (!requestJson.wait) {
               setSelectedAction(null);
               setIsMegaChecked(false);
               setIsZMoveChecked(false);
+              if (roomDataRef.current?.settings?.format === 4) {
+                setDoublesActions([null, null]);
+                setDoublesSelectedActions([null, null]);
+                setIsMegaCheckedBySlot([false, false]);
+                setIsZMoveCheckedBySlot([false, false]);
+
+                const currentMovesBySlot = activeArr.map((a: any, i: number) => {
+                  if (!a || requestJson.side.pokemon?.[i]?.condition?.includes("fnt")) return [];
+                  return a.moves || [];
+                });
+                const firstInputSlot = fs.length > 0
+                  ? fs.findIndex((v) => v)
+                  : currentMovesBySlot.findIndex((m) => m && m.length > 0);
+                  
+                setFocusedSlot(firstInputSlot >= 0 ? firstInputSlot : 0);
+              }
             }
           } catch (e) {
             console.error("Parse error", e);
@@ -182,55 +345,60 @@ export default function GameManager() {
           const [, , ident, details, condition] = trimmed.split("|");
           const name = details.split(",")[0].trim();
           const logIdentName = getIdentName(ident);
+          const slotIndex = getSlotIndex(ident);
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              // 1. 상대 현재 포켓몬 강제 덮어쓰기 보장
-              setOppActive((prev) => ({
-                ...prev,
-                ident,
-                name,
-                details,
-                condition,
-                revealed: true,
-                fainted: condition.includes("fnt"),
-              }));
+              const pkmnData = { ident, name, details, condition, revealed: true, fainted: condition.includes("fnt"), boosts: {} };
 
-              // 2. 상대 파티(Roster)에 강제 추가 보장
+              // 싱글용 oppActive 갱신
+              setOppActive(pkmnData);
+
+              // 더블용 oppActives[slotIndex] 갱신
+              setOppActives((prev) => {
+                const next = [...prev];
+                while (next.length <= slotIndex) next.push(null as any);
+                next[slotIndex] = pkmnData;
+                return next;
+              });
+
+              // 상대 파티(Roster) 갱신
               setOppTeam((prev) => {
                 const newTeam = [...prev];
                 const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
 
                 if (idx >= 0) {
-                  // 기존 포켓몬 갱신
                   newTeam[idx] = { ...newTeam[idx], ident, condition, fainted: condition.includes("fnt"), boosts: {} };
                 } else {
-                  // length 검사를 제거하여 튕기는 현상 없이 무조건 추가되도록 보장
-                  newTeam.push({
-                    ident,
-                    name,
-                    details,
-                    condition,
-                    revealed: true,
-                    fainted: condition.includes("fnt"),
-                    boosts: {},
-                  });
+                  newTeam.push({ ident, name, details, condition, revealed: true, fainted: condition.includes("fnt"), boosts: {} });
                 }
                 return newTeam;
               });
             } else {
-              setMyTeam((prev) =>
-                prev.map((p) => {
-                  const reqName = getIdentName(p.ident);
-                  const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
-                  return {
-                    ...p,
-                    active: isActive,
-                    condition: isActive ? condition : p.condition,
-                    boosts: isActive ? {} : p.boosts,
-                  };
-                }),
-              );
+              const isDoubles = roomDataRef.current?.settings?.format === 4;
+              if (isDoubles) {
+                // 더블: active 상태는 |request| 가 결정 → condition/boosts만 갱신
+                setMyTeam((prev) =>
+                  prev.map((p) => {
+                    const reqName = getIdentName(p.ident);
+                    const isThis = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
+                    return isThis ? { ...p, condition, boosts: {} } : p;
+                  }),
+                );
+              } else {
+                setMyTeam((prev) =>
+                  prev.map((p) => {
+                    const reqName = getIdentName(p.ident);
+                    const isActive = logIdentName.startsWith(reqName) || reqName.startsWith(logIdentName);
+                    return {
+                      ...p,
+                      active: isActive,
+                      condition: isActive ? condition : p.condition,
+                      boosts: isActive ? {} : p.boosts,
+                    };
+                  }),
+                );
+              }
             }
           }
         } else if (trimmed.startsWith("|-mega|")) {
@@ -247,6 +415,27 @@ export default function GameManager() {
             !roomDataRef.current?.settings?.noLimit
           )
             setHasUsedZMove(true);
+        } else if (trimmed.startsWith("|-transform|")) {
+          // 탈 특성(Imposter) / 변신 기술: |-transform|이 실제 변신 이벤트
+          // |detailschange|는 Imposter에서 발생하지 않으므로 이 핸들러에서 처리해야 함
+          if (mySideIdRef.current) {
+            const parts = trimmed.split("|");
+            const transformerIdent = parts[2]; // "p1a: Ditto"
+            const targetIdent = parts[3];      // "p2a: Charizard"
+            if (transformerIdent && targetIdent && transformerIdent.startsWith(mySideIdRef.current)) {
+              const myName = getIdentName(transformerIdent);
+              const transformedDetails = chunkFormChanges[myName] || getIdentName(targetIdent);
+              pendingFormChangesRef.current[myName] = transformedDetails;
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = getIdentName(p.ident);
+                  return myName.startsWith(reqName) || reqName.startsWith(myName)
+                    ? { ...p, details: transformedDetails }
+                    : p;
+                })
+              );
+            }
+          }
         } else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
@@ -256,13 +445,13 @@ export default function GameManager() {
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive((prev) => {
-                if (!prev) return prev;
-                const prevIdentName = getIdentName(prev.ident);
-                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
-                  ? { ...prev, ident, details, name }
-                  : prev;
-              });
+              const matchFn = (p: OppPokemon | null) => {
+                if (!p) return false;
+                const n = getIdentName(p.ident);
+                return logIdentName.startsWith(n) || n.startsWith(logIdentName);
+              };
+              setOppActive((prev) => (matchFn(prev) ? { ...prev!, ident, details, name } : prev));
+              setOppActives((prev) => prev.map((p) => (matchFn(p) ? { ...p!, ident, details, name } : p)));
               setOppTeam((prev) =>
                 prev.map((p) => {
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
@@ -272,6 +461,7 @@ export default function GameManager() {
                 })
               );
             } else {
+              pendingFormChangesRef.current[logIdentName] = details;
               setMyTeam((prev) =>
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
@@ -297,13 +487,13 @@ export default function GameManager() {
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive((prev) => {
-                if (!prev) return prev;
-                const prevIdentName = getIdentName(prev.ident);
-                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
-                  ? { ...prev, condition, fainted: isFaint }
-                  : prev;
-              });
+              const matchOpp = (p: OppPokemon | null) => {
+                if (!p) return false;
+                const n = getIdentName(p.ident);
+                return logIdentName.startsWith(n) || n.startsWith(logIdentName);
+              };
+              setOppActive((prev) => (matchOpp(prev) ? { ...prev!, condition, fainted: isFaint } : prev));
+              setOppActives((prev) => prev.map((p) => (matchOpp(p) ? { ...p!, condition, fainted: isFaint } : p)));
               setOppTeam((prev) =>
                 prev.map((p) => {
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
@@ -335,14 +525,14 @@ export default function GameManager() {
           };
 
           if (mySideIdRef.current) {
+            const matchOppByIdent = (p: OppPokemon | null) => {
+              if (!p) return false;
+              const n = getIdentName(p.ident);
+              return logIdentName.startsWith(n) || n.startsWith(logIdentName);
+            };
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppActive((prev) => {
-                if (!prev) return prev;
-                const prevIdentName = getIdentName(prev.ident);
-                return logIdentName.startsWith(prevIdentName) || prevIdentName.startsWith(logIdentName)
-                  ? { ...prev, condition: updateCondition(prev.condition) }
-                  : prev;
-              });
+              setOppActive((prev) => (matchOppByIdent(prev) ? { ...prev!, condition: updateCondition(prev!.condition) } : prev));
+              setOppActives((prev) => prev.map((p) => (matchOppByIdent(p) ? { ...p!, condition: updateCondition(p!.condition) } : p)));
               setOppTeam((prev) =>
                 prev.map((p) => {
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
@@ -372,6 +562,7 @@ export default function GameManager() {
 
           const applyBoost = (prevTeam: any[]) =>
             prevTeam.map((p) => {
+              if (!p) return p;
               const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                 const currentBoosts = p.boosts || {};
@@ -382,13 +573,16 @@ export default function GameManager() {
             });
 
           if (mySideIdRef.current) {
-            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyBoost);
-            else setMyTeam(applyBoost);
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppTeam(applyBoost);
+              setOppActives(applyBoost);
+            } else setMyTeam(applyBoost);
           }
         } else if (trimmed.startsWith("|-clearallboost|")) {
           // 흑안개 등 필드 전체 랭크업 초기화
           setMyTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
           setOppTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
+          setOppActives((prev) => prev.map((p) => (p ? { ...p, boosts: {} } : p)));
         } else if (
           trimmed.startsWith("|-clearboost|") ||
           trimmed.startsWith("|-clearnegativeboost|") ||
@@ -423,8 +617,10 @@ export default function GameManager() {
             });
 
           if (mySideIdRef.current) {
-            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearBoosts);
-            else setMyTeam(clearBoosts);
+            if (!ident.startsWith(mySideIdRef.current)) {
+              setOppTeam(clearBoosts);
+              setOppActives(clearBoosts);
+            } else setMyTeam(clearBoosts);
           }
         }
 
@@ -436,7 +632,6 @@ export default function GameManager() {
           const logIdentName = getIdentName(ident);
 
           if (effect.includes("protosynthesis") || effect.includes("quarkdrive")) {
-            // 효과 텍스트나 파라미터에서 스탯(atk, def, spa, spd, spe) 추출
             const statMatch =
               effect.match(/(atk|def|spa|spd|spe)/) || (parts[4] || "").toLowerCase().match(/(atk|def|spa|spd|spe)/);
 
@@ -446,6 +641,7 @@ export default function GameManager() {
 
               const applyMultiplier = (prevTeam: any[]) =>
                 prevTeam.map((p) => {
+                  if (!p) return p;
                   const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
                   if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                     return { ...p, multipliers: { ...p.multipliers, [stat]: val } };
@@ -454,8 +650,10 @@ export default function GameManager() {
                 });
 
               if (mySideIdRef.current) {
-                if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyMultiplier);
-                else setMyTeam(applyMultiplier);
+                if (!ident.startsWith(mySideIdRef.current)) {
+                  setOppTeam(applyMultiplier);
+                  setOppActives(applyMultiplier);
+                } else setMyTeam(applyMultiplier);
               }
             }
           }
@@ -471,6 +669,7 @@ export default function GameManager() {
           if (effect.includes("protosynthesis") || effect.includes("quarkdrive")) {
             const clearMultiplier = (prevTeam: any[]) =>
               prevTeam.map((p) => {
+                if (!p) return p;
                 const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
                 if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                   return { ...p, multipliers: {} };
@@ -479,8 +678,10 @@ export default function GameManager() {
               });
 
             if (mySideIdRef.current) {
-              if (!ident.startsWith(mySideIdRef.current)) setOppTeam(clearMultiplier);
-              else setMyTeam(clearMultiplier);
+              if (!ident.startsWith(mySideIdRef.current)) {
+                setOppTeam(clearMultiplier);
+                setOppActives(clearMultiplier);
+              } else setMyTeam(clearMultiplier);
             }
           }
         }
@@ -587,6 +788,7 @@ export default function GameManager() {
     setOppTeam([]);
     setOppActive(null);
     mySideIdRef.current = "";
+    pendingFormChangesRef.current = {};
     setWeather(null);
     setFieldConditions([]);
     setMySideConditions([]);
@@ -599,7 +801,76 @@ export default function GameManager() {
     setIsZMoveChecked(false);
     setHasUsedMega(false);
     setHasUsedZMove(false);
+    // Doubles 상태 초기화
+    setOppActives([]);
+    setActiveMovesBySlot([[], []]);
+    setDoublesActions([null, null]);
+    setDoublesSelectedActions([null, null]);
+    setFocusedSlot(0);
+    setForceSwitch([]);
+    setActiveSlotCount(1);
+    setCanMegaEvoBySlot([false, false]);
+    setCanZMoveBySlot([false, false]);
+    setZMovesBySlot([null, null]);
+    setIsMegaCheckedBySlot([false, false]);
+    setIsZMoveCheckedBySlot([false, false]);
   };
+
+  const sendDoubleAction = (slot: number, cmd: string) => {
+    if (!socket.current || !socket.current.connected || winner) return;
+
+    const newActions = [...doublesActionsRef.current];
+    newActions[slot] = cmd;
+    doublesActionsRef.current = newActions;
+    setDoublesActionsState([...newActions]);
+
+    const parts = cmd.split(" ");
+    setDoublesSelectedActions((prev) => {
+      const next = [...prev];
+      next[slot] = { type: parts[0], index: parseInt(parts[1]) || 0 };
+      return next;
+    });
+
+    const fs = forceSwitchRef.current;
+    
+    // 기술이 아예 없는 빈/기절 슬롯은 입력 대기 목록에서 완벽히 제외
+    const inputSlots: number[] = fs.length > 0 
+      ? fs.map((v, i) => (v ? i : -1)).filter((i) => i >= 0)
+      : activeMovesBySlot.map((moves, i) => (moves && moves.length > 0) ? i : -1).filter((i) => i >= 0);
+
+    // 벤치(인덱스 2번부터)에서 교체 가능한 포켓몬 수 계산
+    const availableSwitches = myTeam.slice(2).filter(
+      (p) => p.condition !== "0 fnt" && !p.condition.includes("fnt")
+    ).length;
+
+    const requiredInputCount = fs.length > 0 
+      ? Math.min(inputSlots.length, availableSwitches) 
+      : inputSlots.length;
+
+    const filledCount = inputSlots.filter((i) => newActions[i] !== null).length;
+    const allFilled = filledCount >= requiredInputCount;
+
+    if (allFilled) {
+      const slotCount = activeSlotCountRef.current;
+      const combinedCmd = Array.from({ length: slotCount }).map((_, i) => {
+        if (fs.length > 0 && !fs[i]) return "pass";
+        return newActions[i] || "pass";
+      }).join(", ");
+      
+      socket.current.emit("action", combinedCmd);
+      doublesActionsRef.current = [null, null];
+      setDoublesActionsState([null, null]);
+    } else {
+      const nextSlot = inputSlots.find((i) => newActions[i] === null);
+      if (nextSlot !== undefined) setFocusedSlot(nextSlot);
+    }
+  };
+
+  const setIsMegaCheckedForSlot = (slot: number, v: boolean) =>
+    setIsMegaCheckedBySlot((prev) => prev.map((x, i) => (i === slot ? v : x)));
+
+  const setIsZMoveCheckedForSlot = (slot: number, v: boolean) =>
+    setIsZMoveCheckedBySlot((prev) => prev.map((x, i) => (i === slot ? v : x)));
 
   const requestRevert = () => {
     setIsWaitingRevert(true);
@@ -676,6 +947,22 @@ export default function GameManager() {
           isWaitingRevert={isWaitingRevert}
           revertToast={revertToast}
           clearRevertToast={() => setRevertToast(null)}
+          isDoubles={roomData?.settings?.format === 4}
+          oppActives={oppActives}
+          activeMovesBySlot={activeMovesBySlot}
+          doublesActions={doublesActions}
+          doublesSelectedActions={doublesSelectedActions}
+          focusedSlot={focusedSlot}
+          setFocusedSlot={setFocusedSlot}
+          forceSwitch={forceSwitch}
+          canMegaEvoBySlot={canMegaEvoBySlot}
+          canZMoveBySlot={canZMoveBySlot}
+          zMovesBySlot={zMovesBySlot}
+          isMegaCheckedBySlot={isMegaCheckedBySlot}
+          isZMoveCheckedBySlot={isZMoveCheckedBySlot}
+          setIsMegaCheckedForSlot={setIsMegaCheckedForSlot}
+          setIsZMoveCheckedForSlot={setIsZMoveCheckedForSlot}
+          sendDoubleAction={sendDoubleAction}
         />
       )}
 
