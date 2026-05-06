@@ -5,6 +5,7 @@ import { BattleStreams, Teams, Dex } from "@pkmn/sim";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { applyDisguisePatch } from "./patches/disguisePatch.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +15,8 @@ const customData = JSON.parse(fs.readFileSync(customPath, "utf8"));
 for (const [id, data] of Object.entries(customData)) {
   Dex.data.Pokedex[id] = data;
 }
+
+applyDisguisePatch(Dex);
 
 const app = express();
 const server = http.createServer(app);

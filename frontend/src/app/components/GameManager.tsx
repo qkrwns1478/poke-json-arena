@@ -69,6 +69,7 @@ export default function GameManager() {
   const [isZMoveCheckedBySlot, setIsZMoveCheckedBySlot] = useState<boolean[]>([false, false]);
 
   const mySideIdRef = useRef<string>("");
+  const pendingFormChangesRef = useRef<Record<string, string>>({});
 
   const socket = useRef<Socket | null>(null);
 
@@ -140,6 +141,49 @@ export default function GameManager() {
 
       const getIdentName = (identStr: string) => identStr.substring(identStr.indexOf(":") + 1).trim();
 
+      // 같은 청크에서 form change / transform이 |request|보다 앞에 오지만 myTeam이 빈 경우를 대비해
+      // 청크 전체를 미리 스캔해 내 측 form change를 기록해둠 (따라큐 탈 특성 등)
+      // |-transform|은 Imposter(탈 특성)·변신 기술 모두에서 발생하는 이벤트임 (|detailschange|가 아님)
+      const chunkFormChanges: Record<string, string> = {};
+      const chunkOppSwitchDetails: Record<string, string> = {};
+      for (const line of lines) {
+        const t = line.trim();
+        if (!mySideIdRef.current) continue;
+
+        // 상대 교체 정보 수집 (|-transform| 시 상대 세부 정보 조회용)
+        if (t.startsWith("|switch|") || t.startsWith("|drag|") || t.startsWith("|replace|")) {
+          const pts = t.split("|");
+          const chIdent = pts[2];
+          const chDetails = pts[3];
+          if (chIdent && chDetails && !chIdent.startsWith(mySideIdRef.current)) {
+            chunkOppSwitchDetails[getIdentName(chIdent)] = chDetails;
+          }
+        }
+
+        // |detailschange| / |-formechange| (메가진화, 폼 체인지 등)
+        if (t.startsWith("|detailschange|") || t.startsWith("|-formechange|")) {
+          const pts = t.split("|");
+          const chIdent = pts[2];
+          const chDetails = pts[3];
+          if (chIdent && chDetails && chIdent.startsWith(mySideIdRef.current)) {
+            chunkFormChanges[getIdentName(chIdent)] = chDetails;
+          }
+        }
+
+        // |-transform| (탈 특성·변신 기술) — 내 포켓몬이 변신한 경우
+        if (t.startsWith("|-transform|")) {
+          const pts = t.split("|");
+          const chTransformer = pts[2]; // "p1a: Ditto"
+          const chTarget = pts[3];      // "p2a: Charizard"
+          if (chTransformer && chTarget && chTransformer.startsWith(mySideIdRef.current)) {
+            const myName = getIdentName(chTransformer);    // "Ditto"
+            const targetName = getIdentName(chTarget);     // "Charizard"
+            // 같은 청크에 상대 switch가 있으면 성별 포함 details 사용, 없으면 이름만 사용
+            chunkFormChanges[myName] = chunkOppSwitchDetails[targetName] || targetName;
+          }
+        }
+      }
+
       lines.forEach((line) => {
         const trimmed = line.trim();
         if (!trimmed) return;
@@ -182,6 +226,9 @@ export default function GameManager() {
 
                     return {
                       ...newPkmn,
+                      details: newPkmn.active
+                        ? (chunkFormChanges[newName] || pendingFormChangesRef.current[newName] || existing?.details || newPkmn.details)
+                        : newPkmn.details,
                       boosts: existing?.boosts || {},
                       multipliers: existing?.multipliers || {},
                     };
@@ -192,24 +239,39 @@ export default function GameManager() {
 
             const activeArr: any[] = requestJson?.active || [];
             const fs: boolean[] = requestJson?.forceSwitch || [];
-            const slotCount = activeArr.length > 0 ? activeArr.length : fs.filter(Boolean).length || 1;
+            const slotCount = activeArr.length > 0 ? activeArr.length : fs.length > 0 ? fs.length : 1;
+
+            if (roomDataRef.current?.settings?.format === 4) {
+              console.log("[DBL REQUEST] slotCount:", slotCount, "wait:", requestJson.wait, "fs:", fs);
+              console.log("[DBL REQUEST] active:", JSON.stringify(activeArr));
+              console.log("[DBL REQUEST] side.pokemon[0]:", requestJson.side?.pokemon?.[0]?.condition, requestJson.side?.pokemon?.[0]?.ident);
+              console.log("[DBL REQUEST] side.pokemon[1]:", requestJson.side?.pokemon?.[1]?.condition, requestJson.side?.pokemon?.[1]?.ident);
+            }
 
             setActiveSlotCount(slotCount);
             setForceSwitch(fs);
 
             if (slotCount > 1) {
               // 더블배틀
-              const newMovesBySlot = activeArr.map((a: any) => a?.moves || []);
+              // side.pokemon[i]의 condition으로 기절 여부를 판단해 해당 슬롯의 기술 목록 제거
+              const isSlotFainted = (i: number) =>
+                requestJson.side.pokemon?.[i]?.condition?.includes("fnt") ?? false;
+
+              const newMovesBySlot = activeArr.map((a: any, i: number) => {
+                if (!a || isSlotFainted(i)) return [];
+                return a.moves || [];
+              });
               setActiveMovesBySlot(newMovesBySlot);
               setActiveMoves(newMovesBySlot[0] || []);
 
-              const newMegaBySlot = activeArr.map((a: any) =>
-                !!a?.canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true)
+              const newMegaBySlot = activeArr.map((a: any, i: number) =>
+                !isSlotFainted(i) && !!a?.canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true)
               );
               setCanMegaEvoBySlot(newMegaBySlot);
               setCanMegaEvo(newMegaBySlot[0] || false);
 
-              const newZBySlot = activeArr.map((a: any) => {
+              const newZBySlot = activeArr.map((a: any, i: number) => {
+                if (isSlotFainted(i)) return null;
                 if (a?.canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)) return a.canZMove;
                 return null;
               });
@@ -218,7 +280,7 @@ export default function GameManager() {
               setCanZMove(newZBySlot[0] !== null);
               setZMoves(newZBySlot[0]);
             } else {
-              // 싱글배틀 (기존 로직)
+              // 싱글배틀 (기존 로직) 또는 더블이지만 포켓몬 1마리만 남은 경우
               if (activeArr[0]) {
                 setActiveMoves(activeArr[0].moves || []);
                 setCanMegaEvo(!!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true));
@@ -229,11 +291,29 @@ export default function GameManager() {
                   setCanZMove(false);
                   setZMoves(null);
                 }
+                // 더블이지만 1마리만 남은 경우: slot 1의 기술 목록을 비워 입력 대기 목록에서 제외
+                if (roomDataRef.current?.settings?.format === 4) {
+                  setActiveMovesBySlot([activeArr[0].moves || [], []]);
+                  setCanMegaEvoBySlot([
+                    !!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true),
+                    false,
+                  ]);
+                  const z0 = activeArr[0].canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)
+                    ? activeArr[0].canZMove : null;
+                  setZMovesBySlot([z0, null]);
+                  setCanZMoveBySlot([z0 !== null, false]);
+                }
               } else if (fs.length === 0) {
                 setActiveMoves([]);
                 setCanMegaEvo(false);
                 setCanZMove(false);
                 setZMoves(null);
+                if (roomDataRef.current?.settings?.format === 4) {
+                  setActiveMovesBySlot([[], []]);
+                  setCanMegaEvoBySlot([false, false]);
+                  setZMovesBySlot([null, null]);
+                  setCanZMoveBySlot([false, false]);
+                }
               }
             }
 
@@ -241,12 +321,21 @@ export default function GameManager() {
               setSelectedAction(null);
               setIsMegaChecked(false);
               setIsZMoveChecked(false);
-              if (slotCount > 1) {
+              if (roomDataRef.current?.settings?.format === 4) {
                 setDoublesActions([null, null]);
                 setDoublesSelectedActions([null, null]);
-                setFocusedSlot(0);
                 setIsMegaCheckedBySlot([false, false]);
                 setIsZMoveCheckedBySlot([false, false]);
+
+                const currentMovesBySlot = activeArr.map((a: any, i: number) => {
+                  if (!a || requestJson.side.pokemon?.[i]?.condition?.includes("fnt")) return [];
+                  return a.moves || [];
+                });
+                const firstInputSlot = fs.length > 0
+                  ? fs.findIndex((v) => v)
+                  : currentMovesBySlot.findIndex((m) => m && m.length > 0);
+                  
+                setFocusedSlot(firstInputSlot >= 0 ? firstInputSlot : 0);
               }
             }
           } catch (e) {
@@ -326,6 +415,27 @@ export default function GameManager() {
             !roomDataRef.current?.settings?.noLimit
           )
             setHasUsedZMove(true);
+        } else if (trimmed.startsWith("|-transform|")) {
+          // 탈 특성(Imposter) / 변신 기술: |-transform|이 실제 변신 이벤트
+          // |detailschange|는 Imposter에서 발생하지 않으므로 이 핸들러에서 처리해야 함
+          if (mySideIdRef.current) {
+            const parts = trimmed.split("|");
+            const transformerIdent = parts[2]; // "p1a: Ditto"
+            const targetIdent = parts[3];      // "p2a: Charizard"
+            if (transformerIdent && targetIdent && transformerIdent.startsWith(mySideIdRef.current)) {
+              const myName = getIdentName(transformerIdent);
+              const transformedDetails = chunkFormChanges[myName] || getIdentName(targetIdent);
+              pendingFormChangesRef.current[myName] = transformedDetails;
+              setMyTeam((prev) =>
+                prev.map((p) => {
+                  const reqName = getIdentName(p.ident);
+                  return myName.startsWith(reqName) || reqName.startsWith(myName)
+                    ? { ...p, details: transformedDetails }
+                    : p;
+                })
+              );
+            }
+          }
         } else if (trimmed.startsWith("|detailschange|") || trimmed.startsWith("|-formechange|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
@@ -351,6 +461,7 @@ export default function GameManager() {
                 })
               );
             } else {
+              pendingFormChangesRef.current[logIdentName] = details;
               setMyTeam((prev) =>
                 prev.map((p) => {
                   const reqName = getIdentName(p.ident);
@@ -677,6 +788,7 @@ export default function GameManager() {
     setOppTeam([]);
     setOppActive(null);
     mySideIdRef.current = "";
+    pendingFormChangesRef.current = {};
     setWeather(null);
     setFieldConditions([]);
     setMySideConditions([]);
@@ -720,17 +832,34 @@ export default function GameManager() {
     });
 
     const fs = forceSwitchRef.current;
-    const inputSlots: number[] =
-      fs.length > 0 ? fs.map((v, i) => (v ? i : -1)).filter((i) => i >= 0) : [0, 1];
+    
+    // 기술이 아예 없는 빈/기절 슬롯은 입력 대기 목록에서 완벽히 제외
+    const inputSlots: number[] = fs.length > 0 
+      ? fs.map((v, i) => (v ? i : -1)).filter((i) => i >= 0)
+      : activeMovesBySlot.map((moves, i) => (moves && moves.length > 0) ? i : -1).filter((i) => i >= 0);
 
-    const allFilled = inputSlots.every((i) => newActions[i] !== null);
+    // 벤치(인덱스 2번부터)에서 교체 가능한 포켓몬 수 계산
+    const availableSwitches = myTeam.slice(2).filter(
+      (p) => p.condition !== "0 fnt" && !p.condition.includes("fnt")
+    ).length;
+
+    const requiredInputCount = fs.length > 0 
+      ? Math.min(inputSlots.length, availableSwitches) 
+      : inputSlots.length;
+
+    const filledCount = inputSlots.filter((i) => newActions[i] !== null).length;
+    const allFilled = filledCount >= requiredInputCount;
+
     if (allFilled) {
-      const combinedCmd = inputSlots.map((i) => newActions[i]).join(", ");
+      const slotCount = activeSlotCountRef.current;
+      const combinedCmd = Array.from({ length: slotCount }).map((_, i) => {
+        if (fs.length > 0 && !fs[i]) return "pass";
+        return newActions[i] || "pass";
+      }).join(", ");
+      
       socket.current.emit("action", combinedCmd);
       doublesActionsRef.current = [null, null];
       setDoublesActionsState([null, null]);
-      // doublesSelectedActions는 여기서 초기화하지 않음:
-      // |request|(wait:false)가 올 때까지 유지해 버튼을 잠근다
     } else {
       const nextSlot = inputSlots.find((i) => newActions[i] === null);
       if (nextSlot !== undefined) setFocusedSlot(nextSlot);

@@ -23,6 +23,11 @@ const getStatusColor = (s: string) => {
   }
 };
 
+const calcEffectiveStat = (base: number, boost = 0, multiplier = 1): number => {
+  const boostMult = boost >= 0 ? (2 + boost) / 2 : 2 / (2 - boost);
+  return Math.floor(base * boostMult * multiplier);
+};
+
 const StatBadge = ({ boost = 0, multiplier = 1 }: { boost?: number; multiplier?: number }) => {
   return (
     <div className="flex items-center gap-1">
@@ -227,7 +232,7 @@ export default function BattlePhase(props: Props) {
 
   useEffect(() => logsEndRef.current?.scrollIntoView({ behavior: "smooth" }), [logs]);
 
-  const activePokemons = myTeam.filter((p) => p.active);
+  const activePokemons = isDoubles ? myTeam.slice(0, 2) : myTeam.filter((p) => p.active);
   const activePokemon = isDoubles ? (activePokemons[focusedSlot] ?? activePokemons[0] ?? null) : (activePokemons[0] ?? null);
 
   // 더블: 포커스된 슬롯의 기술/메가/Z기술 정보
@@ -239,13 +244,20 @@ export default function BattlePhase(props: Props) {
   const currentIsZMoveChecked = isDoubles ? (isZMoveCheckedBySlot[focusedSlot] ?? false) : isZMoveChecked;
   const currentSlotAction = isDoubles ? doublesActions[focusedSlot] : selectedAction ? "set" : null;
   const currentSlotSelectedAction = isDoubles ? doublesSelectedActions[focusedSlot] : selectedAction;
+  const isForcedSwitch = isDoubles && forceSwitch.length > 0 && !!forceSwitch[focusedSlot];
 
   // 더블: 입력이 필요한 슬롯 목록
   const inputSlots: number[] = isDoubles
     ? forceSwitch.length > 0
       ? forceSwitch.map((v, i) => (v ? i : -1)).filter((i) => i >= 0)
-      : [0, 1]
+      : activeMovesBySlot.map((moves, i) => (moves && moves.length > 0) ? i : -1).filter((i) => i >= 0)
     : [];
+
+  const availableSwitches = isDoubles 
+    ? myTeam.slice(2).filter((p) => p.condition !== "0 fnt" && !p.condition.includes("fnt")).length
+    : myTeam.filter((p) => !p.active && p.condition !== "0 fnt" && !p.condition.includes("fnt")).length;
+  const queuedSwitches = isDoubles ? doublesSelectedActions.filter((a) => a?.type === "switch").length : 0;
+  const remainingSwitches = availableSwitches - queuedSwitches;
 
   const handleMoveClick = (idx: number) => {
     if (isDoubles && sendDoubleAction) {
@@ -428,14 +440,14 @@ export default function BattlePhase(props: Props) {
                   return (
                     <button
                       key={slot}
-                      onClick={() => needsInput && handleSetFocusedSlot(slot)}
+                      onClick={() => needsInput && !hasAction && handleSetFocusedSlot(slot)}
                       className={`bg-slate-800/40 backdrop-blur-md p-4 rounded-2xl border shadow-lg text-left transition-all ${
                         hasAction
                           ? "border-emerald-500/40 bg-emerald-900/10"
                           : isFocused && needsInput
                             ? "border-blue-500/50 bg-blue-900/10"
                             : "border-blue-500/20"
-                      } ${needsInput ? "cursor-pointer hover:border-blue-400/50" : "cursor-default"}`}
+                      } ${needsInput && !hasAction ? "cursor-pointer hover:border-blue-400/50" : "cursor-default"}`}
                     >
                       <div className="flex justify-between items-center mb-2">
                         <div className="text-xs text-blue-400 font-black tracking-widest">MY {slot + 1}</div>
@@ -619,18 +631,43 @@ export default function BattlePhase(props: Props) {
                         mul: activePokemon.multipliers?.spe,
                         isFull: true,
                       },
-                    ].map((stat, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex justify-between items-center ${stat.isFull ? "col-span-2 pt-3 border-t border-slate-800/80" : ""}`}
-                      >
-                        <span className="text-slate-500">{stat.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-200 text-base">{stat.val}</span>
-                          {(stat.boost || stat.mul) && <StatBadge boost={stat.boost} multiplier={stat.mul} />}
+                    ].map((stat, idx) => {
+                      let extraMul = 1;
+                      if (stat.label === "Spe") {
+                        if (mySideConditions.some((c) => c.toLowerCase() === "tailwind")) extraMul *= 2;
+                        const ab = (activePokemon.baseAbility || "").toLowerCase().replace(/[\s-]/g, "");
+                        if ((weather === "RainDance" || weather === "PrimordialSea") && ab === "swiftswim") extraMul *= 2;
+                        if ((weather === "SunnyDay" || weather === "DesolateLand") && ab === "chlorophyll") extraMul *= 2;
+                        if (weather === "Sandstorm" && ab === "sandrush") extraMul *= 2;
+                        if ((weather === "Snow" || weather === "Hail") && ab === "slushrush") extraMul *= 2;
+                      }
+                      const totalMul = (stat.mul ?? 1) * extraMul;
+                      const hasModifier = !!(stat.boost) || totalMul !== 1;
+                      const effectiveVal = hasModifier
+                        ? calcEffectiveStat(stat.val, stat.boost ?? 0, totalMul)
+                        : stat.val;
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex justify-between items-center ${stat.isFull ? "col-span-2 pt-3 border-t border-slate-800/80" : ""}`}
+                        >
+                          <span className="text-slate-500">{stat.label}</span>
+                          <div className="flex items-center gap-2">
+                            {hasModifier ? (
+                              <>
+                                <span className="text-slate-500 text-xs">{stat.val}</span>
+                                <span className="text-emerald-400 text-base font-bold">{effectiveVal}</span>
+                              </>
+                            ) : (
+                              <span className="text-slate-200 text-base">{stat.val}</span>
+                            )}
+                            {hasModifier && (
+                              <StatBadge boost={stat.boost} multiplier={totalMul !== 1 ? totalMul : undefined} />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -659,7 +696,7 @@ export default function BattlePhase(props: Props) {
                     MOVES{isDoubles ? ` — MY ${focusedSlot + 1}` : ""}
                   </h3>
                   <div className="flex gap-2">
-                    {roomData?.settings?.allowRevert && !isDoubles && (
+                    {roomData?.settings?.allowRevert && (
                       <button
                         type="button"
                         onClick={requestRevert}
@@ -672,7 +709,10 @@ export default function BattlePhase(props: Props) {
                     {currentCanMegaEvo && (!hasUsedMega || roomData?.settings?.noLimit) && !hasUsedZMove && (
                       <button
                         type="button"
-                        disabled={!!currentSlotSelectedAction}
+                        disabled={
+                          !!currentSlotSelectedAction || 
+                          (isDoubles && !roomData?.settings?.noLimit && (isMegaCheckedBySlot[focusedSlot === 0 ? 1 : 0] || isZMoveCheckedBySlot[focusedSlot === 0 ? 1 : 0]))
+                        }
                         onClick={() => {
                           if (isDoubles && setIsMegaCheckedForSlot) setIsMegaCheckedForSlot(focusedSlot, !currentIsMegaChecked);
                           else setIsMegaChecked(!currentIsMegaChecked);
@@ -687,10 +727,13 @@ export default function BattlePhase(props: Props) {
                         메가진화
                       </button>
                     )}
-                    {currentCanZMove && (!hasUsedZMove || roomData?.settings?.noLimit) && !currentIsMegaChecked && (
+                    {currentCanZMove && (!hasUsedZMove || roomData?.settings?.noLimit) && (!hasUsedMega || roomData?.settings?.noLimit) && !currentIsMegaChecked && (
                       <button
                         type="button"
-                        disabled={!!currentSlotSelectedAction}
+                        disabled={
+                          !!currentSlotSelectedAction || 
+                          (isDoubles && !roomData?.settings?.noLimit && (isZMoveCheckedBySlot[focusedSlot === 0 ? 1 : 0] || isMegaCheckedBySlot[focusedSlot === 0 ? 1 : 0]))
+                        }
                         onClick={() => {
                           if (isDoubles && setIsZMoveCheckedForSlot) setIsZMoveCheckedForSlot(focusedSlot, !currentIsZMoveChecked);
                           else setIsZMoveChecked(!currentIsZMoveChecked);
@@ -709,7 +752,21 @@ export default function BattlePhase(props: Props) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  {currentMoves.length > 0 ? (
+                  {isForcedSwitch ? (
+                    remainingSwitches > 0 ? (
+                      <div className="col-span-2 text-center text-amber-400 text-sm font-mono bg-amber-900/20 p-4 rounded-xl border border-amber-500/30">
+                        아래에서 교체할 포켓몬을 선택하세요
+                      </div>
+                    ) : (
+                      // ✨ 교체할 포켓몬이 없을 때 나타나는 턴 넘기기 버튼
+                      <button
+                        onClick={() => sendDoubleAction && sendDoubleAction(focusedSlot, "pass")}
+                        className="col-span-2 p-4 rounded-xl font-bold text-sm bg-blue-500/20 border border-blue-500/50 text-blue-400 hover:bg-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all"
+                      >
+                        교체할 포켓몬이 없습니다 (Pass)
+                      </button>
+                    )
+                  ) : currentMoves.length > 0 ? (
                     currentMoves.map((m, idx) => {
                       const isSelected = currentSlotSelectedAction?.type === "move" && currentSlotSelectedAction?.index === idx + 1;
                       const isZ = currentIsZMoveChecked && !!currentZMoves?.[idx];
@@ -821,7 +878,7 @@ export default function BattlePhase(props: Props) {
                             ></span>
                             <span className="text-sm md:text-base font-bold tracking-wide">{trEngToKor(name)}</span>
                           </div>
-                          {p.active && (
+                          {p.active && !isDead && (
                             <span className="text-[10px] font-black tracking-widest text-blue-400">ACTIVE</span>
                           )}
                         </div>
