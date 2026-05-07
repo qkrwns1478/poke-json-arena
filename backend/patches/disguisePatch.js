@@ -6,7 +6,7 @@ export function applyDisguisePatch(Dex) {
   Dex.data.Abilities.disguise = {
     ...originalDisguise,
     onDamage(damage, target, source, effect) {
-      if (effect?.effectType === "Move" && ["mimikyu", "mimikyutotem", "mimikyumane"].includes(target.species.id)) {
+      if (effect?.effectType === "Move" && ["mimikyu", "mimikyutotem", "mimikyumane"].includes(target.species.id) && !target.transformed) {
         this.add("-activate", target, "ability: Disguise");
         this.effectState.busted = true;
         return 0;
@@ -38,8 +38,9 @@ export function applyDisguisePatch(Dex) {
         let speciesid = "Mimikyu-Busted";
         if (pokemon.species.id === "mimikyutotem") speciesid = "Mimikyu-Busted-Totem";
         
-        if (pokemon.species.id === "mimikyumane") speciesid = "mimikyumanebusted"; 
+        if (pokemon.species.id === "mimikyumane") speciesid = "mimikyumanebusted";
 
+        this.effectState.busted = false;
         pokemon.formeChange(speciesid, this.effect, true);
         // this.damage(pokemon.baseMaxhp / 8, pokemon, pokemon, this.dex.species.get(speciesid));
       }

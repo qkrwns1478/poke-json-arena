@@ -163,16 +163,12 @@ export default function GameManager() {
 
       const getIdentName = (identStr: string) => identStr.substring(identStr.indexOf(":") + 1).trim();
 
-      // 같은 청크에서 form change / transform이 |request|보다 앞에 오지만 myTeam이 빈 경우를 대비해
-      // 청크 전체를 미리 스캔해 내 측 form change를 기록해둠 (따라큐 탈 특성 등)
-      // |-transform|은 Imposter(탈 특성)·변신 기술 모두에서 발생하는 이벤트임 (|detailschange|가 아님)
       const chunkFormChanges: Record<string, string> = {};
       const chunkOppSwitchDetails: Record<string, string> = {};
       for (const line of lines) {
         const t = line.trim();
         if (!mySideIdRef.current) continue;
 
-        // 상대 교체 정보 수집 (|-transform| 시 상대 세부 정보 조회용)
         if (t.startsWith("|switch|") || t.startsWith("|drag|") || t.startsWith("|replace|")) {
           const pts = t.split("|");
           const chIdent = pts[2];
@@ -182,7 +178,6 @@ export default function GameManager() {
           }
         }
 
-        // |detailschange| / |-formechange| (메가진화, 폼 체인지 등)
         if (t.startsWith("|detailschange|") || t.startsWith("|-formechange|")) {
           const pts = t.split("|");
           const chIdent = pts[2];
@@ -192,7 +187,6 @@ export default function GameManager() {
           }
         }
 
-        // |-transform| (탈 특성·변신 기술) — 내 포켓몬이 변신한 경우
         if (t.startsWith("|-transform|")) {
           const pts = t.split("|");
           const chTransformer = pts[2]; // "p1a: Ditto"
@@ -200,7 +194,6 @@ export default function GameManager() {
           if (chTransformer && chTarget && chTransformer.startsWith(mySideIdRef.current)) {
             const myName = getIdentName(chTransformer);    // "Ditto"
             const targetName = getIdentName(chTarget);     // "Charizard"
-            // 같은 청크에 상대 switch가 있으면 성별 포함 details 사용, 없으면 이름만 사용
             chunkFormChanges[myName] = chunkOppSwitchDetails[targetName] || targetName;
           }
         }
