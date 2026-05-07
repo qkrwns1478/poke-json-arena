@@ -1,12 +1,17 @@
 import { Pokemon, Generations, GenerationNum } from "@smogon/calc";
-import customPokemonData from "@/data/custom.json";
 
-type CustomPokemonID = keyof typeof customPokemonData;
+let customPokemonData: Record<string, any> = {};
+
+export function initCustomPokemonData(fetchedData: Record<string, any>) {
+  customPokemonData = fetchedData;
+}
+
 type GenerationType = ReturnType<typeof Generations.get>;
 
 export function createPokemon(genId: GenerationType | GenerationNum, name: string, options: any = {}) {
   const gen = typeof genId === 'number' ? Generations.get(genId) : genId;
-  const lowerName = name.toLowerCase() as CustomPokemonID;
+  const lowerName = name.toLowerCase();
+
   const customData = customPokemonData[lowerName];
 
   if (customData) {

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
+import { initCustomPokemonData } from "@/app/utils/PokemonFactory";
 import { RoomData, AvailableRoom, PokemonStatus, OppPokemon, MoveData, RoomSettings } from "@/app/types/battle";
 import ChatInterface from "./ChatInterface";
 import LobbyPhase from "./phases/LobbyPhase";
@@ -12,6 +13,8 @@ import SelectionPhase from "./phases/SelectionPhase";
 import BattlePhase from "./phases/BattlePhase";
 
 export default function GameManager() {
+  const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
+
   const [phase, setPhase] = useState<"lobby" | "room" | "selection" | "battle">("lobby");
 
   // Revert State
@@ -92,6 +95,25 @@ export default function GameManager() {
   };
 
   useEffect(() => {
+    const fetchCustomData = async () => {
+      try {
+        const serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+        const res = await fetch(`${serverUrl}/api/custom-pokemon`);
+        const data = await res.json();
+        initCustomPokemonData(data);
+      } catch (error) {
+        console.error("커스텀 포켓몬 데이터를 불러오는데 실패했습니다.", error);
+      } finally {
+        setIsDataLoaded(true);
+      }
+    };
+
+    fetchCustomData();
+  }, []);
+
+  useEffect(() => {
+    if (!isDataLoaded) return;
+
     socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL);
 
     socket.current.on("room-update", (data: RoomData) => {
@@ -241,19 +263,11 @@ export default function GameManager() {
             const fs: boolean[] = requestJson?.forceSwitch || [];
             const slotCount = activeArr.length > 0 ? activeArr.length : fs.length > 0 ? fs.length : 1;
 
-            if (roomDataRef.current?.settings?.format === 4) {
-              console.log("[DBL REQUEST] slotCount:", slotCount, "wait:", requestJson.wait, "fs:", fs);
-              console.log("[DBL REQUEST] active:", JSON.stringify(activeArr));
-              console.log("[DBL REQUEST] side.pokemon[0]:", requestJson.side?.pokemon?.[0]?.condition, requestJson.side?.pokemon?.[0]?.ident);
-              console.log("[DBL REQUEST] side.pokemon[1]:", requestJson.side?.pokemon?.[1]?.condition, requestJson.side?.pokemon?.[1]?.ident);
-            }
-
             setActiveSlotCount(slotCount);
             setForceSwitch(fs);
 
             if (slotCount > 1) {
               // 더블배틀
-              // side.pokemon[i]의 condition으로 기절 여부를 판단해 해당 슬롯의 기술 목록 제거
               const isSlotFainted = (i: number) =>
                 requestJson.side.pokemon?.[i]?.condition?.includes("fnt") ?? false;
 
@@ -280,7 +294,7 @@ export default function GameManager() {
               setCanZMove(newZBySlot[0] !== null);
               setZMoves(newZBySlot[0]);
             } else {
-              // 싱글배틀 (기존 로직) 또는 더블이지만 포켓몬 1마리만 남은 경우
+              // 싱글배틀
               if (activeArr[0]) {
                 setActiveMoves(activeArr[0].moves || []);
                 setCanMegaEvo(!!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true));
@@ -291,7 +305,6 @@ export default function GameManager() {
                   setCanZMove(false);
                   setZMoves(null);
                 }
-                // 더블이지만 1마리만 남은 경우: slot 1의 기술 목록을 비워 입력 대기 목록에서 제외
                 if (roomDataRef.current?.settings?.format === 4) {
                   setActiveMovesBySlot([activeArr[0].moves || [], []]);
                   setCanMegaEvoBySlot([
@@ -351,18 +364,13 @@ export default function GameManager() {
             if (!ident.startsWith(mySideIdRef.current)) {
               const pkmnData = { ident, name, details, condition, revealed: true, fainted: condition.includes("fnt"), boosts: {} };
 
-              // 싱글용 oppActive 갱신
               setOppActive(pkmnData);
-
-              // 더블용 oppActives[slotIndex] 갱신
               setOppActives((prev) => {
                 const next = [...prev];
                 while (next.length <= slotIndex) next.push(null as any);
                 next[slotIndex] = pkmnData;
                 return next;
               });
-
-              // 상대 파티(Roster) 갱신
               setOppTeam((prev) => {
                 const newTeam = [...prev];
                 const idx = newTeam.findIndex((p) => getIdentName(p.ident || "") === logIdentName || p.name === name);
@@ -377,7 +385,6 @@ export default function GameManager() {
             } else {
               const isDoubles = roomDataRef.current?.settings?.format === 4;
               if (isDoubles) {
-                // 더블: active 상태는 |request| 가 결정 → condition/boosts만 갱신
                 setMyTeam((prev) =>
                   prev.map((p) => {
                     const reqName = getIdentName(p.ident);
@@ -416,12 +423,10 @@ export default function GameManager() {
           )
             setHasUsedZMove(true);
         } else if (trimmed.startsWith("|-transform|")) {
-          // 탈 특성(Imposter) / 변신 기술: |-transform|이 실제 변신 이벤트
-          // |detailschange|는 Imposter에서 발생하지 않으므로 이 핸들러에서 처리해야 함
           if (mySideIdRef.current) {
             const parts = trimmed.split("|");
-            const transformerIdent = parts[2]; // "p1a: Ditto"
-            const targetIdent = parts[3];      // "p2a: Charizard"
+            const transformerIdent = parts[2];
+            const targetIdent = parts[3];
             if (transformerIdent && targetIdent && transformerIdent.startsWith(mySideIdRef.current)) {
               const myName = getIdentName(transformerIdent);
               const transformedDetails = chunkFormChanges[myName] || getIdentName(targetIdent);
@@ -554,9 +559,9 @@ export default function GameManager() {
           }
         } else if (trimmed.startsWith("|-boost|") || trimmed.startsWith("|-unboost|")) {
           const parts = trimmed.split("|");
-          const cmd = parts[1]; // "-boost" 또는 "-unboost"
+          const cmd = parts[1];
           const ident = parts[2];
-          const stat = parts[3]; // atk, def, spa, spd, spe, evasion, accuracy
+          const stat = parts[3];
           const amount = parseInt(parts[4], 10) * (cmd === "-unboost" ? -1 : 1);
           const logIdentName = getIdentName(ident);
 
@@ -579,7 +584,6 @@ export default function GameManager() {
             } else setMyTeam(applyBoost);
           }
         } else if (trimmed.startsWith("|-clearallboost|")) {
-          // 흑안개 등 필드 전체 랭크업 초기화
           setMyTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
           setOppTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
           setOppActives((prev) => prev.map((p) => (p ? { ...p, boosts: {} } : p)));
@@ -598,17 +602,17 @@ export default function GameManager() {
               const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                 if (cmd === "-clearboost") {
-                  return { ...p, boosts: {} }; // 모든 랭크 초기화
+                  return { ...p, boosts: {} };
                 } else if (cmd === "-clearnegativeboost") {
                   const newBoosts: Record<string, number> = { ...p.boosts };
                   for (const key in newBoosts) {
-                    if (newBoosts[key] < 0) newBoosts[key] = 0; // 하락한 랭크만 0으로
+                    if (newBoosts[key] < 0) newBoosts[key] = 0;
                   }
                   return { ...p, boosts: newBoosts };
                 } else if (cmd === "-clearpositiveboost") {
                   const newBoosts: Record<string, number> = { ...p.boosts };
                   for (const key in newBoosts) {
-                    if (newBoosts[key] > 0) newBoosts[key] = 0; // 상승한 랭크만 0으로
+                    if (newBoosts[key] > 0) newBoosts[key] = 0;
                   }
                   return { ...p, boosts: newBoosts };
                 }
@@ -622,10 +626,7 @@ export default function GameManager() {
               setOppActives(clearBoosts);
             } else setMyTeam(clearBoosts);
           }
-        }
-
-        // 고대활성, 쿼크차지 등 능력치 배율 증가 시작
-        else if (trimmed.startsWith("|-start|") || trimmed.startsWith("|-activate|")) {
+        } else if (trimmed.startsWith("|-start|") || trimmed.startsWith("|-activate|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const effect = (parts[3] || "").toLowerCase();
@@ -657,10 +658,7 @@ export default function GameManager() {
               }
             }
           }
-        }
-
-        // 능력치 배율 증가 종료
-        else if (trimmed.startsWith("|-end|")) {
+        } else if (trimmed.startsWith("|-end|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const effect = (parts[3] || "").toLowerCase();
@@ -684,10 +682,7 @@ export default function GameManager() {
               } else setMyTeam(clearMultiplier);
             }
           }
-        }
-
-        // 곡예 (Unburden) 등 도구 소모 특성
-        else if (trimmed.startsWith("|-enditem|")) {
+        } else if (trimmed.startsWith("|-enditem|")) {
           const parts = trimmed.split("|");
           const ident = parts[2];
           const logIdentName = getIdentName(ident);
@@ -696,7 +691,6 @@ export default function GameManager() {
             prevTeam.map((p) => {
               const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                // baseAbility가 없을 경우 details(이름, 성별 등)나 ability로 풀스캔
                 const ability = (p.baseAbility || p.ability || p.details || "").toLowerCase();
                 if (ability.includes("unburden") || ability.includes("곡예")) {
                   return { ...p, multipliers: { ...p.multipliers, spe: 2 } };
@@ -739,7 +733,7 @@ export default function GameManager() {
     return () => {
       if (socket.current) socket.current.disconnect();
     };
-  }, []);
+  }, [isDataLoaded]);
 
   // Actions
   const createRoom = (settings: RoomSettings) => socket.current && socket.current.emit("create-room", settings);
@@ -833,12 +827,10 @@ export default function GameManager() {
 
     const fs = forceSwitchRef.current;
     
-    // 기술이 아예 없는 빈/기절 슬롯은 입력 대기 목록에서 완벽히 제외
     const inputSlots: number[] = fs.length > 0 
       ? fs.map((v, i) => (v ? i : -1)).filter((i) => i >= 0)
       : activeMovesBySlot.map((moves, i) => (moves && moves.length > 0) ? i : -1).filter((i) => i >= 0);
 
-    // 벤치(인덱스 2번부터)에서 교체 가능한 포켓몬 수 계산
     const availableSwitches = myTeam.slice(2).filter(
       (p) => p.condition !== "0 fnt" && !p.condition.includes("fnt")
     ).length;
@@ -881,6 +873,14 @@ export default function GameManager() {
     setRevertRequest(false);
     socket.current?.emit("respond-revert", accept);
   };
+
+  if (!isDataLoaded) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-900 text-white font-semibold">
+        <p>데이터를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   // Render Router
   return (

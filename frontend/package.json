@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "node -e \"const fs=require('fs'); if(fs.existsSync('src/data/custom.json.example') && !fs.existsSync('src/data/custom.json')) fs.copyFileSync('src/data/custom.json.example', 'src/data/custom.json')\""
+    "lint": "eslint"
   },
   "dependencies": {
     "@smogon/calc": "^0.11.0",
