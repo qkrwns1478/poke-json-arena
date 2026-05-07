@@ -1,6 +1,7 @@
 import { useState } from "react";
+import Link from "next/link";
 import { AvailableRoom, RoomSettings } from "@/app/types/battle";
-import { Plus, RefreshCw, Info } from "lucide-react";
+import { Plus, RefreshCw, Info, Hammer } from "lucide-react";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
 interface Props {
@@ -51,10 +52,17 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
       {/* 배경 장식 */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-slate-800/20 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="z-10 text-center mb-14">
+      <div className="z-10 text-center mb-14 flex flex-col items-center gap-4">
         <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-100 drop-shadow-sm">
           POKÉ JSON ARENA
         </h1>
+        <Link
+          href="/teambuilder"
+          className="flex items-center gap-1.5 text-slate-400 hover:text-slate-100 border border-slate-700/60 hover:border-slate-500 bg-slate-800/40 hover:bg-slate-700/50 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+        >
+          <Hammer className="w-3.5 h-3.5" />
+          팀 만들기
+        </Link>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 w-full max-w-5xl z-10">
