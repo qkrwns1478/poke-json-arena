@@ -69,7 +69,7 @@ io.on("connection", (socket) => {
   // 1. 방 만들기
   socket.on("create-room", (settings) => {
     const sanitized = {
-      format: [3, 4, 6].includes(settings?.format) ? settings.format : 3,
+      format: [3, 4, 6, 66].includes(settings?.format) ? settings.format : 3,
       allowMega: !!settings?.allowMega,
       allowZMove: !!settings?.allowZMove,
       noLimit: !!settings?.noLimit,
@@ -222,7 +222,8 @@ io.on("connection", (socket) => {
     if (!room.players[pKeys[0]].ready || !room.players[pKeys[1]].ready)
       return socket.emit("log", "[시스템] 모든 플레이어가 준비되지 않았습니다.");
     const fmt = room.settings.format;
-    if (room.players[pKeys[0]].parsedTeam.length < fmt || room.players[pKeys[1]].parsedTeam.length < fmt) {
+    const teamSize = fmt === 66 ? 6 : fmt;
+    if (room.players[pKeys[0]].parsedTeam.length < teamSize || room.players[pKeys[1]].parsedTeam.length < teamSize) {
       return socket.emit("log", "[시스템] 팀이 포맷보다 작습니다.");
     }
 
@@ -251,7 +252,8 @@ io.on("connection", (socket) => {
 
     const player = room.players[socket.id];
     const teamLen = player?.parsedTeam?.length ?? 0;
-    const req = room.settings.format;
+    const rawFmt = room.settings.format;
+    const req = rawFmt === 66 ? 6 : rawFmt;
     if (
       !Array.isArray(indices) ||
       indices.length !== req ||
@@ -425,7 +427,7 @@ function startSimGame(room, isReplay) {
     }
   })();
 
-  const gameFormat = room.settings.format === 4 ? "gen9doublescustomgame" : "gen9customgame";
+  const gameFormat = (room.settings.format === 4 || room.settings.format === 66) ? "gen9doublescustomgame" : "gen9customgame";
 
   streams.omniscient.write(
     `>start ${JSON.stringify({ formatid: `${gameFormat}@@@!teampreview`, seed: room.game.seed })}`,

@@ -21,7 +21,7 @@ export default function SelectionPhase({
   onSubmitSelection,
 }: Props) {
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const reqCount = roomData.settings.format;
+  const reqCount = roomData.settings.format === 66 ? 6 : roomData.settings.format;
 
   const handleSelect = (idx: number) => {
     if (isSubmitted) return;
@@ -45,8 +45,8 @@ export default function SelectionPhase({
         <h2 className="text-3xl font-black text-slate-100 tracking-tight">엔트리 선택</h2>
         <p className="text-slate-400 font-medium text-sm mt-2 tracking-wide">
           출전할 포켓몬 <span className="text-slate-200 font-bold">{reqCount}마리</span>를 순서대로 선택하세요
-          {roomData.settings.format === 4 && (
-            <span className="block text-xs text-amber-400 mt-1">⚡ 더블배틀: 1번·2번 포켓몬이 먼저 동시에 출전합니다</span>
+          {(roomData.settings.format === 4 || roomData.settings.format === 66) && (
+            <span className="block text-xs text-amber-400 mt-1">더블배틀: 1번·2번 포켓몬이 먼저 동시에 출전합니다</span>
           )}
         </p>
       </div>
