@@ -544,11 +544,11 @@ export default function BattlePhase(props: Props) {
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-sm font-bold tracking-widest text-slate-400">OPPONENT ROSTER</h3>
               <span className="text-xs bg-slate-800 border border-slate-700 px-2.5 py-1 rounded text-slate-400 font-mono">
-                {oppTeam.length}/{roomData?.settings?.format}
+                {oppTeam.length}/{roomData?.settings?.format === 66 ? 6 : (roomData?.settings?.format || 6)}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              {Array.from({ length: roomData?.settings?.format || 6 }).map((_, i) => {
+              {Array.from({ length: roomData?.settings?.format === 66 ? 6 : (roomData?.settings?.format || 6) }).map((_, i) => {
                 const pkmn = oppTeam[i];
                 if (!pkmn)
                   return (
@@ -853,23 +853,28 @@ export default function BattlePhase(props: Props) {
                     const name = p.details.split(",")[0];
                     const isDead = p.condition === "0 fnt";
                     const isSelected = currentSlotSelectedAction?.type === "switch" && currentSlotSelectedAction?.index === idx + 1;
+                    const isQueuedByOtherSlot = isDoubles
+                      ? doublesSelectedActions.some((a, i) => i !== focusedSlot && a?.type === "switch" && a?.index === idx + 1)
+                      : false;
 
                     return (
                       <button
                         key={idx}
                         onClick={() => handleSwitchClick(idx)}
-                        disabled={p.active || isDead || !!currentSlotSelectedAction}
+                        disabled={p.active || isDead || !!currentSlotSelectedAction || isQueuedByOtherSlot}
                         className={`p-3 rounded-xl flex flex-col justify-center border relative transition-all duration-200
                         ${
                           isSelected
                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                            : p.active
-                              ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                              : isDead
-                                ? "bg-slate-900/40 border-slate-800 text-slate-600 opacity-50"
-                                : "bg-slate-800/60 border-slate-700 hover:bg-slate-700 text-slate-200 hover:border-slate-500"
+                            : isQueuedByOtherSlot
+                              ? "bg-slate-900/40 border-slate-800 text-slate-600 opacity-50"
+                              : p.active
+                                ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                : isDead
+                                  ? "bg-slate-900/40 border-slate-800 text-slate-600 opacity-50"
+                                  : "bg-slate-800/60 border-slate-700 hover:bg-slate-700 text-slate-200 hover:border-slate-500"
                         }
-                        ${currentSlotSelectedAction && !isSelected ? "opacity-50 cursor-not-allowed" : ""}`}
+                        ${(currentSlotSelectedAction && !isSelected) || isQueuedByOtherSlot ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <div className="flex justify-between items-center w-full px-2">
                           <div className="flex gap-3 items-center">

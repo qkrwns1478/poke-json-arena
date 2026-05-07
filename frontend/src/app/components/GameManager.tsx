@@ -305,7 +305,7 @@ export default function GameManager() {
                   setCanZMove(false);
                   setZMoves(null);
                 }
-                if (roomDataRef.current?.settings?.format === 4) {
+                if (roomDataRef.current?.settings?.format === 4 || roomDataRef.current?.settings?.format === 66) {
                   setActiveMovesBySlot([activeArr[0].moves || [], []]);
                   setCanMegaEvoBySlot([
                     !!activeArr[0].canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true),
@@ -321,7 +321,7 @@ export default function GameManager() {
                 setCanMegaEvo(false);
                 setCanZMove(false);
                 setZMoves(null);
-                if (roomDataRef.current?.settings?.format === 4) {
+                if (roomDataRef.current?.settings?.format === 4 || roomDataRef.current?.settings?.format === 66) {
                   setActiveMovesBySlot([[], []]);
                   setCanMegaEvoBySlot([false, false]);
                   setZMovesBySlot([null, null]);
@@ -334,7 +334,7 @@ export default function GameManager() {
               setSelectedAction(null);
               setIsMegaChecked(false);
               setIsZMoveChecked(false);
-              if (roomDataRef.current?.settings?.format === 4) {
+              if (roomDataRef.current?.settings?.format === 4 || roomDataRef.current?.settings?.format === 66) {
                 setDoublesActions([null, null]);
                 setDoublesSelectedActions([null, null]);
                 setIsMegaCheckedBySlot([false, false]);
@@ -383,7 +383,7 @@ export default function GameManager() {
                 return newTeam;
               });
             } else {
-              const isDoubles = roomDataRef.current?.settings?.format === 4;
+              const isDoubles = roomDataRef.current?.settings?.format === 4 || roomDataRef.current?.settings?.format === 66;
               if (isDoubles) {
                 setMyTeam((prev) =>
                   prev.map((p) => {
@@ -947,7 +947,7 @@ export default function GameManager() {
           isWaitingRevert={isWaitingRevert}
           revertToast={revertToast}
           clearRevertToast={() => setRevertToast(null)}
-          isDoubles={roomData?.settings?.format === 4}
+          isDoubles={roomData?.settings?.format === 4 || roomData?.settings?.format === 66}
           oppActives={oppActives}
           activeMovesBySlot={activeMovesBySlot}
           doublesActions={doublesActions}

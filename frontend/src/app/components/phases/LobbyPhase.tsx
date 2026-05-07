@@ -75,6 +75,7 @@ export default function LobbyPhase({ availableRooms, onCreateRoom, onJoinRoom, o
                 <option value={3}>3v3 싱글</option>
                 <option value={4}>4v4 더블</option>
                 <option value={6}>6v6 싱글</option>
+                <option value={66}>6v6 더블</option>
               </select>
             </div>
 
