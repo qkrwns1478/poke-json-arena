@@ -1,16 +1,10 @@
 import express from "express";
 import http from "http";
+import cors from "cors";
 import { Server } from "socket.io";
 import { BattleStreams, Teams, Dex } from "@pkmn/sim";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { applyDisguisePatch } from "./patches/disguisePatch.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const customPath = path.resolve(__dirname, "../frontend/src/data/custom.json");
-const customData = JSON.parse(fs.readFileSync(customPath, "utf8"));
+import { customData } from "./customData.js"
 
 for (const [id, data] of Object.entries(customData)) {
   Dex.data.Pokedex[id] = data;
@@ -19,6 +13,8 @@ for (const [id, data] of Object.entries(customData)) {
 applyDisguisePatch(Dex);
 
 const app = express();
+app.use(cors());
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
@@ -445,6 +441,10 @@ function startSimGame(room, isReplay) {
     }
   }
 }
+
+app.get("/api/custom-pokemon", (req, res) => {
+  res.json(customData);
+});
 
 server.listen(3001, () => {
   console.log("Battle Server running on port 3001");
