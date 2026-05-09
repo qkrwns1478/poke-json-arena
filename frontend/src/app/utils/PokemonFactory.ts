@@ -29,13 +29,13 @@ export function createPokemon(genId: GenerationType | GenerationNum, name: strin
       baseStats: customData.baseStats,
       weightkg: customData.weightkg,
       ...(options as { overrides?: Record<string, unknown> }).overrides,
-    };
+    } as PokemonOptions['overrides'];
 
     const ability = (options as { ability?: string }).ability || customData.abilities?.["0"];
 
     return new Pokemon(gen, "Arceus", {
       ...options,
-      name: customData.name,
+      name: customData.name as PokemonOptions['name'],
       ability: ability,
       overrides: customOverrides,
     });
