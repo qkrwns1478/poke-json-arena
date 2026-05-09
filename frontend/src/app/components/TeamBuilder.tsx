@@ -1,61 +1,43 @@
-'use client';
+"use client";
 
-import { useState, useMemo, useCallback, Fragment } from 'react';
-import Link from 'next/link';
-import { Generations } from '@smogon/calc';
-import { ArrowLeft, Download, Plus, Trash2, Edit2, X } from 'lucide-react';
-import * as DICT from '@/data/dict';
-
-// ─── Type constants ────────────────────────────────────────────────────────────
-
-const TYPE_ENG_TO_KOR: Record<string, string> = {
-  Normal: '노말', Fire: '불꽃', Water: '물', Electric: '전기',
-  Grass: '풀', Ice: '얼음', Fighting: '격투', Poison: '독',
-  Ground: '땅', Flying: '비행', Psychic: '에스퍼', Bug: '벌레',
-  Rock: '바위', Ghost: '고스트', Dragon: '드래곤', Dark: '악',
-  Steel: '강철', Fairy: '페어리',
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  '노말': 'bg-slate-500', '불꽃': 'bg-orange-500', '물': 'bg-blue-500',
-  '전기': 'bg-yellow-400 text-slate-900', '풀': 'bg-green-600', '얼음': 'bg-cyan-400 text-slate-900',
-  '격투': 'bg-red-600', '독': 'bg-purple-500', '땅': 'bg-yellow-600',
-  '비행': 'bg-indigo-400', '에스퍼': 'bg-pink-500', '벌레': 'bg-lime-500 text-slate-900',
-  '바위': 'bg-stone-500', '고스트': 'bg-purple-700', '드래곤': 'bg-violet-600',
-  '악': 'bg-slate-700', '강철': 'bg-slate-400 text-slate-900', '페어리': 'bg-pink-400 text-slate-900',
-};
+import { useState, useMemo, useCallback, Fragment } from "react";
+import Link from "next/link";
+import { Generations } from "@smogon/calc";
+import { ArrowLeft, Download, Plus, Trash2, Edit2, X } from "lucide-react";
+import * as DICT from "@/data/dict";
+import { TYPE_ENG_TO_KOR, TypeBadge } from "@/app/utils/Types";
 
 // ─── Nature modifiers ──────────────────────────────────────────────────────────
 
-type StatKey = 'HP' | 'ATK' | 'DEF' | 'SpA' | 'SpD' | 'SPE';
+type StatKey = "HP" | "ATK" | "DEF" | "SpA" | "SpD" | "SPE";
 
 // Indexed in same order as NATURE_KOR / NATURE_ENG arrays
 const NATURE_MODIFIERS: [StatKey | null, StatKey | null][] = [
-  [null, null],        // Hardy   노력
-  ['ATK', 'DEF'],      // Lonely  외로움
-  ['ATK', 'SPE'],      // Brave   용감
-  ['ATK', 'SpA'],      // Adamant 고집
-  ['ATK', 'SpD'],      // Naughty 개구쟁이
-  ['DEF', 'ATK'],      // Bold    대담
-  [null, null],        // Docile  온순
-  ['DEF', 'SPE'],      // Relaxed 무사태평
-  ['DEF', 'SpA'],      // Impish  장난꾸러기
-  ['DEF', 'SpD'],      // Lax     촐랑
-  ['SPE', 'ATK'],      // Timid   겁쟁이
-  ['SPE', 'DEF'],      // Hasty   성급
-  [null, null],        // Serious 성실
-  ['SPE', 'SpA'],      // Jolly   명랑
-  ['SPE', 'SpD'],      // Naive   천진난만
-  ['SpA', 'ATK'],      // Modest  조심
-  ['SpA', 'DEF'],      // Mild    의젓
-  ['SpA', 'SPE'],      // Quiet   냉정
-  [null, null],        // Bashful 수줍음
-  ['SpA', 'SpD'],      // Rash    덜렁
-  ['SpD', 'ATK'],      // Calm    차분
-  ['SpD', 'DEF'],      // Gentle  얌전
-  ['SpD', 'SPE'],      // Sassy   건방
-  ['SpD', 'SpA'],      // Careful 신중
-  [null, null],        // Quirky  변덕
+  [null, null],   // Hardy   노력
+  ["ATK", "DEF"], // Lonely  외로움
+  ["ATK", "SPE"], // Brave   용감
+  ["ATK", "SpA"], // Adamant 고집
+  ["ATK", "SpD"], // Naughty 개구쟁이
+  ["DEF", "ATK"], // Bold    대담
+  [null, null],   // Docile  온순
+  ["DEF", "SPE"], // Relaxed 무사태평
+  ["DEF", "SpA"], // Impish  장난꾸러기
+  ["DEF", "SpD"], // Lax     촐랑
+  ["SPE", "ATK"], // Timid   겁쟁이
+  ["SPE", "DEF"], // Hasty   성급
+  [null, null],   // Serious 성실
+  ["SPE", "SpA"], // Jolly   명랑
+  ["SPE", "SpD"], // Naive   천진난만
+  ["SpA", "ATK"], // Modest  조심
+  ["SpA", "DEF"], // Mild    의젓
+  ["SpA", "SPE"], // Quiet   냉정
+  [null, null],   // Bashful 수줍음
+  ["SpA", "SpD"], // Rash    덜렁
+  ["SpD", "ATK"], // Calm    차분
+  ["SpD", "DEF"], // Gentle  얌전
+  ["SpD", "SPE"], // Sassy   건방
+  ["SpD", "SpA"], // Careful 신중
+  [null, null],   // Quirky  변덕
 ];
 
 function getNatureMod(natureKor: string, stat: StatKey): number {
@@ -76,27 +58,32 @@ function getNatureBoostDrop(natureKor: string): [StatKey | null, StatKey | null]
 // ─── Stat calculation ──────────────────────────────────────────────────────────
 
 export interface Stats {
-  HP: number; ATK: number; DEF: number; SpA: number; SpD: number; SPE: number;
+  HP: number;
+  ATK: number;
+  DEF: number;
+  SpA: number;
+  SpD: number;
+  SPE: number;
 }
 
-const STAT_KEYS: StatKey[] = ['HP', 'ATK', 'DEF', 'SpA', 'SpD', 'SPE'];
+const STAT_KEYS: StatKey[] = ["HP", "ATK", "DEF", "SpA", "SpD", "SPE"];
 const EMPTY_STATS: Stats = { HP: 0, ATK: 0, DEF: 0, SpA: 0, SpD: 0, SPE: 0 };
 const DEFAULT_IVS: Stats = { HP: 31, ATK: 31, DEF: 31, SpA: 31, SpD: 31, SPE: 31 };
 
 const calcHP = (base: number, iv: number, ev: number, level: number): number =>
-  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level / 100) + level + 10);
+  Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100 + level + 10);
 
 const calcOther = (base: number, iv: number, ev: number, level: number, mod: number): number =>
-  Math.floor(Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level / 100) + 5) * mod);
+  Math.floor(Math.floor(((2 * base + iv + Math.floor(ev / 4)) * level) / 100 + 5) * mod);
 
 function calcFinalStats(base: Stats, ivs: Stats, evs: Stats, nature: string, level: number): Stats {
   return {
-    HP:  calcHP(base.HP,   ivs.HP,  evs.HP,  level),
-    ATK: calcOther(base.ATK, ivs.ATK, evs.ATK, level, getNatureMod(nature, 'ATK')),
-    DEF: calcOther(base.DEF, ivs.DEF, evs.DEF, level, getNatureMod(nature, 'DEF')),
-    SpA: calcOther(base.SpA, ivs.SpA, evs.SpA, level, getNatureMod(nature, 'SpA')),
-    SpD: calcOther(base.SpD, ivs.SpD, evs.SpD, level, getNatureMod(nature, 'SpD')),
-    SPE: calcOther(base.SPE, ivs.SPE, evs.SPE, level, getNatureMod(nature, 'SPE')),
+    HP: calcHP(base.HP, ivs.HP, evs.HP, level),
+    ATK: calcOther(base.ATK, ivs.ATK, evs.ATK, level, getNatureMod(nature, "ATK")),
+    DEF: calcOther(base.DEF, ivs.DEF, evs.DEF, level, getNatureMod(nature, "DEF")),
+    SpA: calcOther(base.SpA, ivs.SpA, evs.SpA, level, getNatureMod(nature, "SpA")),
+    SpD: calcOther(base.SpD, ivs.SpD, evs.SpD, level, getNatureMod(nature, "SpD")),
+    SPE: calcOther(base.SPE, ivs.SPE, evs.SPE, level, getNatureMod(nature, "SPE")),
   };
 }
 
@@ -118,9 +105,9 @@ function getSpeciesData(engName: string, genNum: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 
 function detectMegaForms(engName: string): string[] {
   const forms: string[] = [];
-  if (getSpeciesData(engName + '-Mega',   7)) forms.push(engName + '-Mega');
-  if (getSpeciesData(engName + '-Mega-X', 7)) forms.push(engName + '-Mega-X');
-  if (getSpeciesData(engName + '-Mega-Y', 7)) forms.push(engName + '-Mega-Y');
+  if (getSpeciesData(engName + "-Mega", 7)) forms.push(engName + "-Mega");
+  if (getSpeciesData(engName + "-Mega-X", 7)) forms.push(engName + "-Mega-X");
+  if (getSpeciesData(engName + "-Mega-Y", 7)) forms.push(engName + "-Mega-Y");
   return forms;
 }
 
@@ -130,7 +117,7 @@ function speciesAbilitiesKor(engName: string): string[] {
   const abilities = Object.values(species.abilities as Record<string, string>)
     .filter(Boolean)
     .map((a: string) => {
-      const normalized = a.toLowerCase().replace(/[\s-]/g, '');
+      const normalized = a.toLowerCase().replace(/[\s-]/g, "");
       const idx = DICT.ABILITY_ENG.indexOf(normalized);
       return idx >= 0 ? DICT.ABILITY_KOR[idx] : a;
     });
@@ -177,7 +164,7 @@ function Combobox({
   const filtered = useMemo(() => {
     if (!value) return [];
     const q = value.toLowerCase();
-    return options.filter(o => o.toLowerCase().includes(q)).slice(0, 8);
+    return options.filter((o) => o.toLowerCase().includes(q)).slice(0, 8);
   }, [options, value]);
 
   return (
@@ -185,7 +172,10 @@ function Combobox({
       <input
         type="text"
         value={value}
-        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
@@ -193,10 +183,13 @@ function Combobox({
       />
       {open && filtered.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
-          {filtered.map(o => (
+          {filtered.map((o) => (
             <li
               key={o}
-              onMouseDown={() => { onChange(o); setOpen(false); }}
+              onMouseDown={() => {
+                onChange(o);
+                setOpen(false);
+              }}
               className="px-3 py-2 text-sm text-slate-200 hover:bg-slate-700/60 cursor-pointer"
             >
               {o}
@@ -210,13 +203,7 @@ function Combobox({
 
 // ─── Species search combobox ───────────────────────────────────────────────────
 
-function SpeciesCombobox({
-  value,
-  onSelect,
-}: {
-  value: string;
-  onSelect: (kor: string, eng: string) => void;
-}) {
+function SpeciesCombobox({ value, onSelect }: { value: string; onSelect: (kor: string, eng: string) => void }) {
   const [input, setInput] = useState(value);
   const [open, setOpen] = useState(false);
   const [prevValue, setPrevValue] = useState(value);
@@ -244,7 +231,10 @@ function SpeciesCombobox({
       <input
         type="text"
         value={input}
-        onChange={e => { setInput(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          setInput(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="포켓몬 이름으로 검색 (한/영)"
@@ -252,10 +242,13 @@ function SpeciesCombobox({
       />
       {open && suggestions.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
-          {suggestions.map(s => (
+          {suggestions.map((s) => (
             <li
               key={s.eng}
-              onMouseDown={() => { onSelect(s.kor, s.eng); setOpen(false); }}
+              onMouseDown={() => {
+                onSelect(s.kor, s.eng);
+                setOpen(false);
+              }}
               className="px-3 py-2 text-sm text-slate-200 hover:bg-slate-700/60 cursor-pointer flex justify-between items-center"
             >
               <span>{s.kor}</span>
@@ -289,7 +282,7 @@ function EVInput({
         min={0}
         max={Math.min(252, max + value)}
         value={value}
-        onChange={e => {
+        onChange={(e) => {
           const v = Math.max(0, Math.min(252, Number(e.target.value) || 0));
           onChange(v);
         }}
@@ -310,7 +303,7 @@ function IVInput({ label, value, onChange }: { label: string; value: number; onC
         min={0}
         max={31}
         value={value}
-        onChange={e => onChange(Math.max(0, Math.min(31, Number(e.target.value) || 0)))}
+        onChange={(e) => onChange(Math.max(0, Math.min(31, Number(e.target.value) || 0)))}
         className="w-full bg-slate-900/60 text-slate-100 text-center px-1 py-1.5 rounded-lg border border-slate-700/50 focus:outline-none focus:border-blue-500/60 text-xs"
       />
     </div>
@@ -338,16 +331,16 @@ function StatsTable({
         <span className="text-slate-500">스탯</span>
         <span className="text-slate-500 text-center">종족값</span>
         <span className="text-slate-500 text-center">실수치</span>
-        {STAT_KEYS.map(k => (
+        {STAT_KEYS.map((k) => (
           <Fragment key={k}>
             <span
-              className={`font-semibold ${k === boost ? 'text-red-400' : k === drop ? 'text-blue-400' : 'text-slate-300'}`}
+              className={`font-semibold ${k === boost ? "text-red-400" : k === drop ? "text-blue-400" : "text-slate-300"}`}
             >
               {k}
             </span>
             <span className="text-slate-400 text-center">{base[k]}</span>
             <span
-              className={`text-center font-semibold ${k === boost ? 'text-red-400' : k === drop ? 'text-blue-400' : 'text-slate-200'}`}
+              className={`text-center font-semibold ${k === boost ? "text-red-400" : k === drop ? "text-blue-400" : "text-slate-200"}`}
             >
               {finalStats[k]}
             </span>
@@ -355,17 +348,6 @@ function StatsTable({
         ))}
       </div>
     </div>
-  );
-}
-
-// ─── Type badge ────────────────────────────────────────────────────────────────
-
-function TypeBadge({ type }: { type: string }) {
-  const color = TYPE_COLORS[type] ?? 'bg-slate-600';
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold text-white ${color}`}>
-      {type}
-    </span>
   );
 }
 
@@ -395,17 +377,22 @@ interface FormState {
 const DEFAULT_EVS: Stats = { HP: 0, ATK: 0, DEF: 0, SpA: 0, SpD: 0, SPE: 0 };
 
 const DEFAULT_FORM: FormState = {
-  species_kor: '', species_eng: '',
+  species_kor: "",
+  species_eng: "",
   types: [],
-  gender: '수컷', nature: '명랑',
-  ability: '', item: '',
-  moves: ['', '', '', ''],
+  gender: "수컷",
+  nature: "명랑",
+  ability: "",
+  item: "",
+  moves: ["", "", "", ""],
   level: 50,
   base_stats: EMPTY_STATS,
   IVs: { ...DEFAULT_IVS },
   EVs: { ...DEFAULT_EVS },
-  megaForms: [], selectedMegaForm: '',
-  mega_ability: '', mega_types: [],
+  megaForms: [],
+  selectedMegaForm: "",
+  mega_ability: "",
+  mega_types: [],
   mega_base_stats: null,
   abilityOptions: [],
 };
@@ -420,11 +407,11 @@ export default function TeamBuilder() {
   const evTotal = STAT_KEYS.reduce((s, k) => s + form.EVs[k], 0);
   const evRemaining = 510 - evTotal;
 
-  const hasMegaEnabled = form.selectedMegaForm !== '';
+  const hasMegaEnabled = form.selectedMegaForm !== "";
 
   const currentFinal = useMemo(
     () => calcFinalStats(form.base_stats, form.IVs, form.EVs, form.nature, form.level),
-    [form.base_stats, form.IVs, form.EVs, form.nature, form.level]
+    [form.base_stats, form.IVs, form.EVs, form.nature, form.level],
   );
 
   const currentMegaFinal = useMemo(() => {
@@ -436,32 +423,31 @@ export default function TeamBuilder() {
   const handleSpeciesSelect = useCallback((kor: string, eng: string) => {
     const species = getSpeciesData(eng);
     const base_stats = species ? smogonToStats(species.baseStats) : EMPTY_STATS;
-    const types = species
-      ? (species.types as string[]).map(t => TYPE_ENG_TO_KOR[t] ?? t)
-      : [];
+    const types = species ? (species.types as string[]).map((t) => TYPE_ENG_TO_KOR[t] ?? t) : [];
 
     const megaForms = detectMegaForms(eng);
-    const firstMega = megaForms[0] ?? '';
+    const firstMega = megaForms[0] ?? "";
     let mega_base_stats: Stats | null = null;
     let mega_types: string[] = [];
     if (firstMega) {
       const megaSpecies = getSpeciesData(firstMega, 7);
       if (megaSpecies) {
         mega_base_stats = smogonToStats(megaSpecies.baseStats);
-        mega_types = (megaSpecies.types as string[]).map(t => TYPE_ENG_TO_KOR[t] ?? t);
+        mega_types = (megaSpecies.types as string[]).map((t) => TYPE_ENG_TO_KOR[t] ?? t);
       }
     }
 
     const abilityOptions = speciesAbilitiesKor(eng);
 
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      species_kor: kor, species_eng: eng,
+      species_kor: kor,
+      species_eng: eng,
       types,
       base_stats,
       megaForms,
-      selectedMegaForm: '',
-      mega_ability: '',
+      selectedMegaForm: "",
+      mega_ability: "",
       mega_types,
       mega_base_stats,
       abilityOptions,
@@ -472,31 +458,31 @@ export default function TeamBuilder() {
   // When mega form selection changes
   const handleMegaFormChange = useCallback((formName: string) => {
     if (!formName) {
-      setForm(prev => ({ ...prev, selectedMegaForm: '' }));
+      setForm((prev) => ({ ...prev, selectedMegaForm: "" }));
       return;
     }
     const megaSpecies = getSpeciesData(formName, 7);
     if (!megaSpecies) return;
     const mega_base_stats = smogonToStats(megaSpecies.baseStats);
-    const mega_types = (megaSpecies.types as string[]).map(t => TYPE_ENG_TO_KOR[t] ?? t);
-    setForm(prev => ({ ...prev, selectedMegaForm: formName, mega_base_stats, mega_types }));
+    const mega_types = (megaSpecies.types as string[]).map((t) => TYPE_ENG_TO_KOR[t] ?? t);
+    setForm((prev) => ({ ...prev, selectedMegaForm: formName, mega_base_stats, mega_types }));
   }, []);
 
   // EV change with 510 cap
   const handleEVChange = useCallback((stat: StatKey, value: number) => {
-    setForm(prev => {
-      const otherTotal = STAT_KEYS.filter(k => k !== stat).reduce((s, k) => s + prev.EVs[k], 0);
+    setForm((prev) => {
+      const otherTotal = STAT_KEYS.filter((k) => k !== stat).reduce((s, k) => s + prev.EVs[k], 0);
       const clamped = Math.max(0, Math.min(252, Math.min(510 - otherTotal, value)));
       return { ...prev, EVs: { ...prev.EVs, [stat]: clamped } };
     });
   }, []);
 
   const handleIVChange = useCallback((stat: StatKey, value: number) => {
-    setForm(prev => ({ ...prev, IVs: { ...prev.IVs, [stat]: Math.max(0, Math.min(31, value)) } }));
+    setForm((prev) => ({ ...prev, IVs: { ...prev.IVs, [stat]: Math.max(0, Math.min(31, value)) } }));
   }, []);
 
   const handleMoveChange = useCallback((idx: number, value: string) => {
-    setForm(prev => {
+    setForm((prev) => {
       const moves = [...prev.moves] as [string, string, string, string];
       moves[idx] = value;
       return { ...prev, moves };
@@ -534,54 +520,63 @@ export default function TeamBuilder() {
     const entry = buildEntry();
     if (!entry) return;
     if (editingIdx !== null) {
-      setTeam(prev => prev.map((p, i) => (i === editingIdx ? entry : p)));
+      setTeam((prev) => prev.map((p, i) => (i === editingIdx ? entry : p)));
       setEditingIdx(null);
     } else {
-      setTeam(prev => [...prev, entry]);
+      setTeam((prev) => [...prev, entry]);
     }
     setForm({ ...DEFAULT_FORM });
   }, [buildEntry, editingIdx]);
 
-  const handleEdit = useCallback((idx: number) => {
-    const p = team[idx];
-    const megaForms = detectMegaForms(p.species_eng);
-    const abilityOptions = speciesAbilitiesKor(p.species_eng);
+  const handleEdit = useCallback(
+    (idx: number) => {
+      const p = team[idx];
+      const megaForms = detectMegaForms(p.species_eng);
+      const abilityOptions = speciesAbilitiesKor(p.species_eng);
 
-    // Determine selected mega form
-    let selectedMegaForm = '';
-    if (p.mega_base_stats && megaForms.length > 0) {
-      // Find which mega form matches the stored mega_base_stats
-      selectedMegaForm = megaForms[0];
-    }
+      // Determine selected mega form
+      let selectedMegaForm = "";
+      if (p.mega_base_stats && megaForms.length > 0) {
+        // Find which mega form matches the stored mega_base_stats
+        selectedMegaForm = megaForms[0];
+      }
 
-    setForm({
-      species_kor: p.species_kor, species_eng: p.species_eng,
-      types: p.types,
-      gender: p.gender, nature: p.nature,
-      ability: p.ability, item: p.item,
-      moves: [p.moves[0] ?? '', p.moves[1] ?? '', p.moves[2] ?? '', p.moves[3] ?? ''],
-      level: p.level,
-      base_stats: p.base_stats,
-      IVs: { ...p.IVs },
-      EVs: { ...p.EVs },
-      megaForms,
-      selectedMegaForm,
-      mega_ability: p.mega_ability ?? '',
-      mega_types: p.mega_types ?? [],
-      mega_base_stats: p.mega_base_stats ?? null,
-      abilityOptions,
-    });
-    setEditingIdx(idx);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [team]);
+      setForm({
+        species_kor: p.species_kor,
+        species_eng: p.species_eng,
+        types: p.types,
+        gender: p.gender,
+        nature: p.nature,
+        ability: p.ability,
+        item: p.item,
+        moves: [p.moves[0] ?? "", p.moves[1] ?? "", p.moves[2] ?? "", p.moves[3] ?? ""],
+        level: p.level,
+        base_stats: p.base_stats,
+        IVs: { ...p.IVs },
+        EVs: { ...p.EVs },
+        megaForms,
+        selectedMegaForm,
+        mega_ability: p.mega_ability ?? "",
+        mega_types: p.mega_types ?? [],
+        mega_base_stats: p.mega_base_stats ?? null,
+        abilityOptions,
+      });
+      setEditingIdx(idx);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [team],
+  );
 
-  const handleRemove = useCallback((idx: number) => {
-    setTeam(prev => prev.filter((_, i) => i !== idx));
-    if (editingIdx === idx) {
-      setEditingIdx(null);
-      setForm({ ...DEFAULT_FORM });
-    }
-  }, [editingIdx]);
+  const handleRemove = useCallback(
+    (idx: number) => {
+      setTeam((prev) => prev.filter((_, i) => i !== idx));
+      if (editingIdx === idx) {
+        setEditingIdx(null);
+        setForm({ ...DEFAULT_FORM });
+      }
+    },
+    [editingIdx],
+  );
 
   const handleCancelEdit = useCallback(() => {
     setEditingIdx(null);
@@ -590,7 +585,7 @@ export default function TeamBuilder() {
 
   // JSON export
   const handleExport = useCallback(() => {
-    const data = team.map(p => {
+    const data = team.map((p) => {
       const entry: Record<string, unknown> = {};
       entry.species_eng = p.species_eng;
       entry.species_kor = p.species_kor;
@@ -613,18 +608,18 @@ export default function TeamBuilder() {
     });
 
     const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'team.json';
+    a.download = "team.json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [team]);
 
-  const canAdd = form.species_eng !== '';
+  const canAdd = form.species_eng !== "";
 
   return (
     <div className="min-h-screen p-6 md:p-8 flex flex-col relative overflow-x-hidden">
@@ -646,12 +641,11 @@ export default function TeamBuilder() {
 
       {/* Main content */}
       <div className="z-10 flex flex-col lg:flex-row gap-6 w-full max-w-6xl mx-auto">
-
         {/* ── Left: Form ── */}
         <div className="flex-1 bg-slate-800/40 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-6 flex flex-col gap-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-100">
-              {editingIdx !== null ? `#${editingIdx + 1} 수정 중` : '포켓몬 추가'}
+              {editingIdx !== null ? `#${editingIdx + 1} 수정 중` : "포켓몬 추가"}
             </h2>
             {editingIdx !== null && (
               <button
@@ -669,7 +663,9 @@ export default function TeamBuilder() {
             <SpeciesCombobox value={form.species_kor} onSelect={handleSpeciesSelect} />
             {form.types.length > 0 && (
               <div className="flex gap-1 mt-1">
-                {form.types.map(t => <TypeBadge key={t} type={t} />)}
+                {form.types.map((t) => (
+                  <TypeBadge key={t} type={t} />
+                ))}
               </div>
             )}
           </div>
@@ -680,7 +676,7 @@ export default function TeamBuilder() {
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">성별</label>
               <select
                 value={form.gender}
-                onChange={e => setForm(prev => ({ ...prev, gender: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))}
                 className="bg-slate-900/60 text-slate-100 px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-blue-500/60 text-sm appearance-none"
               >
                 <option value="수컷">수컷</option>
@@ -692,11 +688,13 @@ export default function TeamBuilder() {
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">성격</label>
               <select
                 value={form.nature}
-                onChange={e => setForm(prev => ({ ...prev, nature: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, nature: e.target.value }))}
                 className="bg-slate-900/60 text-slate-100 px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-blue-500/60 text-sm appearance-none"
               >
-                {DICT.NATURE_KOR.map(n => (
-                  <option key={n} value={n}>{n}</option>
+                {DICT.NATURE_KOR.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
                 ))}
               </select>
             </div>
@@ -708,7 +706,7 @@ export default function TeamBuilder() {
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">특성</label>
               <Combobox
                 value={form.ability}
-                onChange={v => setForm(prev => ({ ...prev, ability: v }))}
+                onChange={(v) => setForm((prev) => ({ ...prev, ability: v }))}
                 options={form.abilityOptions.length > 0 ? form.abilityOptions : DICT.ABILITY_KOR}
                 placeholder="특성 이름..."
               />
@@ -717,7 +715,7 @@ export default function TeamBuilder() {
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">지닌물건</label>
               <Combobox
                 value={form.item}
-                onChange={v => setForm(prev => ({ ...prev, item: v }))}
+                onChange={(v) => setForm((prev) => ({ ...prev, item: v }))}
                 options={DICT.ITEMS_KOR}
                 placeholder="아이템 이름..."
               />
@@ -728,11 +726,11 @@ export default function TeamBuilder() {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">기술 (최대 4개)</label>
             <div className="grid grid-cols-2 gap-2">
-              {([0, 1, 2, 3] as const).map(i => (
+              {([0, 1, 2, 3] as const).map((i) => (
                 <Combobox
                   key={i}
                   value={form.moves[i]}
-                  onChange={v => handleMoveChange(i, v)}
+                  onChange={(v) => handleMoveChange(i, v)}
                   options={DICT.MOVES_KOR}
                   placeholder={`기술 ${i + 1}`}
                 />
@@ -748,7 +746,9 @@ export default function TeamBuilder() {
               min={1}
               max={100}
               value={form.level}
-              onChange={e => setForm(prev => ({ ...prev, level: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }))}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, level: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }))
+              }
               className="w-24 bg-slate-900/60 text-slate-100 px-3 py-2 rounded-xl border border-slate-700/50 focus:outline-none focus:border-blue-500/60 text-sm"
             />
           </div>
@@ -757,13 +757,8 @@ export default function TeamBuilder() {
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">개체값 (IVs)</label>
             <div className="grid grid-cols-6 gap-1">
-              {STAT_KEYS.map(k => (
-                <IVInput
-                  key={k}
-                  label={k}
-                  value={form.IVs[k]}
-                  onChange={v => handleIVChange(k, v)}
-                />
+              {STAT_KEYS.map((k) => (
+                <IVInput key={k} label={k} value={form.IVs[k]} onChange={(v) => handleIVChange(k, v)} />
               ))}
             </div>
           </div>
@@ -772,24 +767,24 @@ export default function TeamBuilder() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">노력치 (EVs)</label>
-              <span className={`text-xs font-semibold ${evTotal > 510 ? 'text-red-400' : 'text-slate-400'}`}>
+              <span className={`text-xs font-semibold ${evTotal > 510 ? "text-red-400" : "text-slate-400"}`}>
                 {evTotal} / 510
               </span>
             </div>
             {/* EV progress bar */}
             <div className="w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${evTotal > 510 ? 'bg-red-500' : 'bg-blue-500'}`}
+                className={`h-full rounded-full transition-all ${evTotal > 510 ? "bg-red-500" : "bg-blue-500"}`}
                 style={{ width: `${Math.min(100, (evTotal / 510) * 100)}%` }}
               />
             </div>
             <div className="grid grid-cols-6 gap-1">
-              {STAT_KEYS.map(k => (
+              {STAT_KEYS.map((k) => (
                 <EVInput
                   key={k}
                   label={k}
                   value={form.EVs[k]}
-                  onChange={v => handleEVChange(k, v)}
+                  onChange={(v) => handleEVChange(k, v)}
                   max={evRemaining}
                 />
               ))}
@@ -799,11 +794,7 @@ export default function TeamBuilder() {
           {/* Stats preview */}
           {form.species_eng && (
             <div className="bg-slate-900/40 rounded-2xl p-4 border border-slate-700/30">
-              <StatsTable
-                base={form.base_stats}
-                final={currentFinal}
-                nature={form.nature}
-              />
+              <StatsTable base={form.base_stats} final={currentFinal} nature={form.nature} />
             </div>
           )}
 
@@ -816,11 +807,13 @@ export default function TeamBuilder() {
                   {form.megaForms.length > 1 && hasMegaEnabled && (
                     <select
                       value={form.selectedMegaForm}
-                      onChange={e => handleMegaFormChange(e.target.value)}
+                      onChange={(e) => handleMegaFormChange(e.target.value)}
                       className="bg-slate-800 text-slate-200 text-xs px-2 py-1 rounded-lg border border-slate-600 focus:outline-none"
                     >
-                      {form.megaForms.map(f => (
-                        <option key={f} value={f}>{f.replace(form.species_eng + '-', '')}</option>
+                      {form.megaForms.map((f) => (
+                        <option key={f} value={f}>
+                          {f.replace(form.species_eng + "-", "")}
+                        </option>
                       ))}
                     </select>
                   )}
@@ -829,7 +822,7 @@ export default function TeamBuilder() {
                       type="checkbox"
                       className="sr-only peer"
                       checked={hasMegaEnabled}
-                      onChange={e => handleMegaFormChange(e.target.checked ? form.megaForms[0] : '')}
+                      onChange={(e) => handleMegaFormChange(e.target.checked ? form.megaForms[0] : "")}
                     />
                     <div className="w-9 h-5 bg-slate-700/50 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
                   </label>
@@ -839,19 +832,25 @@ export default function TeamBuilder() {
               {hasMegaEnabled && (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">메가 특성</label>
+                    <label className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                      메가 특성
+                    </label>
                     <Combobox
                       value={form.mega_ability}
-                      onChange={v => setForm(prev => ({ ...prev, mega_ability: v }))}
+                      onChange={(v) => setForm((prev) => ({ ...prev, mega_ability: v }))}
                       options={DICT.ABILITY_KOR}
                       placeholder="메가 특성 이름..."
                     />
                   </div>
                   {form.mega_types.length > 0 && (
                     <div className="flex flex-col gap-1">
-                      <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">메가 타입</span>
+                      <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                        메가 타입
+                      </span>
                       <div className="flex gap-1">
-                        {form.mega_types.map(t => <TypeBadge key={t} type={t} />)}
+                        {form.mega_types.map((t) => (
+                          <TypeBadge key={t} type={t} />
+                        ))}
                       </div>
                     </div>
                   )}
@@ -875,10 +874,13 @@ export default function TeamBuilder() {
             className="mt-auto w-full bg-slate-100 hover:bg-white disabled:bg-slate-700/50 disabled:text-slate-500 text-slate-900 font-bold py-3.5 rounded-2xl transition-all duration-200 flex justify-center items-center gap-2 text-sm"
           >
             {editingIdx !== null ? (
-              <><Edit2 className="w-4 h-4" /> 수정 완료</>
+              <>
+                <Edit2 className="w-4 h-4" /> 수정 완료
+              </>
             ) : (
-              <><Plus className="w-4 h-4" /> 추가</>
-
+              <>
+                <Plus className="w-4 h-4" /> 추가
+              </>
             )}
           </button>
         </div>
@@ -902,8 +904,8 @@ export default function TeamBuilder() {
                     key={idx}
                     className={`group bg-slate-900/40 rounded-2xl p-3 border transition-all ${
                       editingIdx === idx
-                        ? 'border-blue-500/60 bg-blue-500/5'
-                        : 'border-slate-700/30 hover:border-slate-600/50'
+                        ? "border-blue-500/60 bg-blue-500/5"
+                        : "border-slate-700/30 hover:border-slate-600/50"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -914,11 +916,15 @@ export default function TeamBuilder() {
                           <span className="text-slate-500 text-xs truncate">{p.species_eng}</span>
                         </div>
                         <div className="flex gap-1 flex-wrap">
-                          {p.types.map(t => <TypeBadge key={t} type={t} />)}
+                          {p.types.map((t) => (
+                            <TypeBadge key={t} type={t} />
+                          ))}
                           {p.mega_types && (
                             <>
                               <span className="text-slate-500 text-[10px] self-center">→</span>
-                              {p.mega_types.map(t => <TypeBadge key={'m' + t} type={t} />)}
+                              {p.mega_types.map((t) => (
+                                <TypeBadge key={"m" + t} type={t} />
+                              ))}
                             </>
                           )}
                         </div>
@@ -926,7 +932,12 @@ export default function TeamBuilder() {
                           <span>{p.nature}</span>
                           <span>·</span>
                           <span>{p.ability}</span>
-                          {p.item && <><span>·</span><span>{p.item}</span></>}
+                          {p.item && (
+                            <>
+                              <span>·</span>
+                              <span>{p.item}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-1 ml-2 shrink-0">
