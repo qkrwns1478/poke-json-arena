@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { RoomData } from "@/app/types/battle";
 import { TeamEntryManager } from "../TeamEntryManager";
-import SAMPLE_TEAMS from "@/data/SampleTeams";
 import { Pokemon } from "@/app/utils/JsonParser";
+import SAMPLE_TEAMS from "@/data/SampleTeams";
 
 interface Props {
   roomData: RoomData;
@@ -125,7 +125,7 @@ export default function RoomPhase({
         {!customTeam && (
           <div className="animate-fadeIn mb-8">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-xs text-slate-400 font-medium">또는 PS(Pokemon Showdown) 포맷 텍스트 입력</span>
+              <span className="text-xs text-slate-400 font-medium">또는 Pokemon Showdown 포맷 텍스트 입력</span>
               <div className="flex gap-2">
                 <button
                   onClick={() => setTeamString(SAMPLE_TEAMS.team1)}

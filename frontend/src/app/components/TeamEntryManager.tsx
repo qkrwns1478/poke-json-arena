@@ -1,5 +1,6 @@
 import React from "react";
 import { Pokemon, parsePokemonTeam } from "../utils/JsonParser";
+import { TypeBadge } from "@/app/utils/Types";
 import "@/assets/sprites/spritesheet-2H5N5RW5.css";
 
 interface Props {
@@ -33,7 +34,7 @@ export const TeamEntryManager = ({ customTeam, onTeamConfirm, onClear }: Props) 
       <div className="flex justify-between items-end mb-5">
         <div>
           <h2 className="text-lg font-bold text-slate-100 tracking-tight">파티 데이터</h2>
-          <p className="text-xs text-slate-400 mt-1">사용할 포켓몬 JSON 데이터를 업로드하세요.</p>
+          {!customTeam && (<p className="text-xs text-slate-400 mt-1">사용할 포켓몬 JSON 데이터를 업로드하세요.</p>)}
         </div>
         {customTeam && (
           <button
@@ -79,8 +80,15 @@ export const TeamEntryManager = ({ customTeam, onTeamConfirm, onClear }: Props) 
                 </div>
 
                 <div className="text-[11px] text-slate-400 mt-2 border-t border-slate-700/50 pt-2 space-y-0.5">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">타입</span> <span>{p.types.join(", ")}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500">타입</span>
+                    {p.types.length > 0 && (
+                      <div className="flex gap-1 mt-1">
+                        {p.types.map((t) => (
+                          <TypeBadge key={t} type={t} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">특성</span> <span>{p.ability}</span>
