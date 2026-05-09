@@ -1,5 +1,3 @@
-@AGENTS.md
-
 - .env 파일은 절대 커밋하지 마세요.
 - 모든 작업을 완료한 후 작업 내역을 `/log/claude_YYYYMMDDHHMMSS_XXX.md` 파일에 작성해주세요.
   - `YYYYMMDDHHMMSS`는 작업 완료 시간입니다. (예: 2026.04.19 18:53:11 → `20260419185311`)
