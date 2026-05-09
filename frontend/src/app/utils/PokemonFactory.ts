@@ -1,14 +1,23 @@
 import { Pokemon, Generations, GenerationNum } from "@smogon/calc";
 
-let customPokemonData: Record<string, any> = {};
+interface CustomPokemonEntry {
+  types?: unknown;
+  baseStats?: unknown;
+  weightkg?: number;
+  abilities?: Record<string, string>;
+  name?: string;
+}
 
-export function initCustomPokemonData(fetchedData: Record<string, any>) {
+let customPokemonData: Record<string, CustomPokemonEntry> = {};
+
+export function initCustomPokemonData(fetchedData: Record<string, CustomPokemonEntry>) {
   customPokemonData = fetchedData;
 }
 
 type GenerationType = ReturnType<typeof Generations.get>;
+type PokemonOptions = NonNullable<ConstructorParameters<typeof Pokemon>[2]>;
 
-export function createPokemon(genId: GenerationType | GenerationNum, name: string, options: any = {}) {
+export function createPokemon(genId: GenerationType | GenerationNum, name: string, options: PokemonOptions = {}) {
   const gen = typeof genId === 'number' ? Generations.get(genId) : genId;
   const lowerName = name.toLowerCase();
 
@@ -19,10 +28,10 @@ export function createPokemon(genId: GenerationType | GenerationNum, name: strin
       types: customData.types,
       baseStats: customData.baseStats,
       weightkg: customData.weightkg,
-      ...options.overrides,
+      ...(options as { overrides?: Record<string, unknown> }).overrides,
     };
 
-    const ability = options.ability || customData.abilities["0"];
+    const ability = (options as { ability?: string }).ability || customData.abilities?.["0"];
 
     return new Pokemon(gen, "Arceus", {
       ...options,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
 import parseBattleLog from "@/app/utils/BattleLogParser";
@@ -63,7 +63,7 @@ export default function GameManager() {
   const [focusedSlot, setFocusedSlot] = useState<number>(0);
   const [forceSwitch, setForceSwitchState] = useState<boolean[]>([]);
   const forceSwitchRef = useRef<boolean[]>([]);
-  const [activeSlotCount, setActiveSlotCountState] = useState<number>(1);
+  const [_activeSlotCount, setActiveSlotCountState] = useState<number>(1);
   const activeSlotCountRef = useRef<number>(1);
   const [canMegaEvoBySlot, setCanMegaEvoBySlot] = useState<boolean[]>([false, false]);
   const [canZMoveBySlot, setCanZMoveBySlot] = useState<boolean[]>([false, false]);
@@ -75,6 +75,45 @@ export default function GameManager() {
   const pendingFormChangesRef = useRef<Record<string, string>>({});
 
   const socket = useRef<Socket | null>(null);
+  const [socketId, setSocketId] = useState<string>("");
+
+  const resetBattleState = useCallback(() => {
+    setWinner(null);
+    setLogs([]);
+    setMyTeam([]);
+    setActiveMoves([]);
+    setOppTeam([]);
+    setOppActive(null);
+    mySideIdRef.current = "";
+    pendingFormChangesRef.current = {};
+    setWeather(null);
+    setFieldConditions([]);
+    setMySideConditions([]);
+    setOppSideConditions([]);
+    setSelectedAction(null);
+    setCanMegaEvo(false);
+    setCanZMove(false);
+    setZMoves(null);
+    setIsMegaChecked(false);
+    setIsZMoveChecked(false);
+    setHasUsedMega(false);
+    setHasUsedZMove(false);
+    setOppActives([]);
+    setActiveMovesBySlot([[], []]);
+    doublesActionsRef.current = [null, null];
+    setDoublesActionsState([null, null]);
+    setDoublesSelectedActions([null, null]);
+    setFocusedSlot(0);
+    forceSwitchRef.current = [];
+    setForceSwitchState([]);
+    activeSlotCountRef.current = 1;
+    setActiveSlotCountState(1);
+    setCanMegaEvoBySlot([false, false]);
+    setCanZMoveBySlot([false, false]);
+    setZMovesBySlot([null, null]);
+    setIsMegaCheckedBySlot([false, false]);
+    setIsZMoveCheckedBySlot([false, false]);
+  }, []);
 
   // Doubles sync helpers
   const setDoublesActions = (actions: (string | null)[]) => {
@@ -115,6 +154,10 @@ export default function GameManager() {
     if (!isDataLoaded) return;
 
     socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL);
+
+    socket.current.on("connect", () => {
+      setSocketId(socket.current?.id ?? "");
+    });
 
     socket.current.on("room-update", (data: RoomData) => {
       setRoomData(data);
@@ -232,7 +275,7 @@ export default function GameManager() {
               mySideIdRef.current = requestJson.side.id;
               if (requestJson.side.pokemon) {
                 setMyTeam((prev) =>
-                  requestJson.side.pokemon.map((newPkmn: any) => {
+                  requestJson.side.pokemon.map((newPkmn: PokemonStatus) => {
                     const newName = getIdentName(newPkmn.ident || "");
                     const existing = prev.find((p) => {
                       const prevName = getIdentName(p.ident || "");
@@ -252,7 +295,7 @@ export default function GameManager() {
               }
             }
 
-            const activeArr: any[] = requestJson?.active || [];
+            const activeArr: { moves?: MoveData[]; canMegaEvo?: boolean; canZMove?: { move: string; target?: string }[] }[] = requestJson?.active || [];
             const fs: boolean[] = requestJson?.forceSwitch || [];
             const slotCount = activeArr.length > 0 ? activeArr.length : fs.length > 0 ? fs.length : 1;
 
@@ -264,26 +307,26 @@ export default function GameManager() {
               const isSlotFainted = (i: number) =>
                 requestJson.side.pokemon?.[i]?.condition?.includes("fnt") ?? false;
 
-              const newMovesBySlot = activeArr.map((a: any, i: number) => {
+              const newMovesBySlot = activeArr.map((a, i: number) => {
                 if (!a || isSlotFainted(i)) return [];
                 return a.moves || [];
               });
               setActiveMovesBySlot(newMovesBySlot);
               setActiveMoves(newMovesBySlot[0] || []);
 
-              const newMegaBySlot = activeArr.map((a: any, i: number) =>
+              const newMegaBySlot = activeArr.map((a, i: number) =>
                 !isSlotFainted(i) && !!a?.canMegaEvo && (roomDataRef.current?.settings?.allowMega ?? true)
               );
               setCanMegaEvoBySlot(newMegaBySlot);
               setCanMegaEvo(newMegaBySlot[0] || false);
 
-              const newZBySlot = activeArr.map((a: any, i: number) => {
+              const newZBySlot = activeArr.map((a, i: number) => {
                 if (isSlotFainted(i)) return null;
                 if (a?.canZMove && (roomDataRef.current?.settings?.allowZMove ?? true)) return a.canZMove;
                 return null;
               });
               setZMovesBySlot(newZBySlot);
-              setCanZMoveBySlot(newZBySlot.map((z: any) => z !== null));
+              setCanZMoveBySlot(newZBySlot.map((z) => z !== null));
               setCanZMove(newZBySlot[0] !== null);
               setZMoves(newZBySlot[0]);
             } else {
@@ -333,7 +376,7 @@ export default function GameManager() {
                 setIsMegaCheckedBySlot([false, false]);
                 setIsZMoveCheckedBySlot([false, false]);
 
-                const currentMovesBySlot = activeArr.map((a: any, i: number) => {
+                const currentMovesBySlot = activeArr.map((a, i: number) => {
                   if (!a || requestJson.side.pokemon?.[i]?.condition?.includes("fnt")) return [];
                   return a.moves || [];
                 });
@@ -360,7 +403,7 @@ export default function GameManager() {
               setOppActive(pkmnData);
               setOppActives((prev) => {
                 const next = [...prev];
-                while (next.length <= slotIndex) next.push(null as any);
+                while (next.length <= slotIndex) next.push(null as unknown as OppPokemon);
                 next[slotIndex] = pkmnData;
                 return next;
               });
@@ -558,10 +601,10 @@ export default function GameManager() {
           const amount = parseInt(parts[4], 10) * (cmd === "-unboost" ? -1 : 1);
           const logIdentName = getIdentName(ident);
 
-          const applyBoost = (prevTeam: any[]) =>
+          const applyBoost = (prevTeam: (PokemonStatus | OppPokemon | null)[]) =>
             prevTeam.map((p) => {
               if (!p) return p;
-              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              const pIdentName = p.ident ? getIdentName(p.ident) : ('name' in p ? p.name : "");
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                 const currentBoosts = p.boosts || {};
                 const currentStatBoost = currentBoosts[stat] || 0;
@@ -572,9 +615,9 @@ export default function GameManager() {
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppTeam(applyBoost);
-              setOppActives(applyBoost);
-            } else setMyTeam(applyBoost);
+              setOppTeam(applyBoost as (prev: OppPokemon[]) => OppPokemon[]);
+              setOppActives(applyBoost as (prev: OppPokemon[]) => OppPokemon[]);
+            } else setMyTeam(applyBoost as (prev: PokemonStatus[]) => PokemonStatus[]);
           }
         } else if (trimmed.startsWith("|-clearallboost|")) {
           setMyTeam((prev) => prev.map((p) => ({ ...p, boosts: {} })));
@@ -590,9 +633,10 @@ export default function GameManager() {
           const ident = parts[2];
           const logIdentName = getIdentName(ident);
 
-          const clearBoosts = (prevTeam: any[]) =>
+          const clearBoosts = (prevTeam: (PokemonStatus | OppPokemon | null)[]) =>
             prevTeam.map((p) => {
-              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (!p) return p;
+              const pIdentName = p.ident ? getIdentName(p.ident) : ('name' in p ? p.name : "");
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                 if (cmd === "-clearboost") {
                   return { ...p, boosts: {} };
@@ -615,9 +659,9 @@ export default function GameManager() {
 
           if (mySideIdRef.current) {
             if (!ident.startsWith(mySideIdRef.current)) {
-              setOppTeam(clearBoosts);
-              setOppActives(clearBoosts);
-            } else setMyTeam(clearBoosts);
+              setOppTeam(clearBoosts as (prev: OppPokemon[]) => OppPokemon[]);
+              setOppActives(clearBoosts as (prev: OppPokemon[]) => OppPokemon[]);
+            } else setMyTeam(clearBoosts as (prev: PokemonStatus[]) => PokemonStatus[]);
           }
         } else if (trimmed.startsWith("|-start|") || trimmed.startsWith("|-activate|")) {
           const parts = trimmed.split("|");
@@ -633,21 +677,22 @@ export default function GameManager() {
               const stat = statMatch[1];
               const val = stat === "spe" ? 1.5 : 1.3;
 
-              const applyMultiplier = (prevTeam: any[]) =>
+              const applyMultiplier = (prevTeam: (PokemonStatus | OppPokemon | null)[]) =>
                 prevTeam.map((p) => {
                   if (!p) return p;
-                  const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                  const pIdentName = p.ident ? getIdentName(p.ident) : ('name' in p ? p.name : "");
                   if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                    return { ...p, multipliers: { ...p.multipliers, [stat]: val } };
+                    const existing = (p as { multipliers?: Record<string, number> }).multipliers;
+                    return { ...p, multipliers: { ...existing, [stat]: val } };
                   }
                   return p;
                 });
 
               if (mySideIdRef.current) {
                 if (!ident.startsWith(mySideIdRef.current)) {
-                  setOppTeam(applyMultiplier);
-                  setOppActives(applyMultiplier);
-                } else setMyTeam(applyMultiplier);
+                  setOppTeam(applyMultiplier as (prev: OppPokemon[]) => OppPokemon[]);
+                  setOppActives(applyMultiplier as (prev: OppPokemon[]) => OppPokemon[]);
+                } else setMyTeam(applyMultiplier as (prev: PokemonStatus[]) => PokemonStatus[]);
               }
             }
           }
@@ -658,10 +703,10 @@ export default function GameManager() {
           const logIdentName = getIdentName(ident);
 
           if (effect.includes("protosynthesis") || effect.includes("quarkdrive")) {
-            const clearMultiplier = (prevTeam: any[]) =>
+            const clearMultiplier = (prevTeam: (PokemonStatus | OppPokemon | null)[]) =>
               prevTeam.map((p) => {
                 if (!p) return p;
-                const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+                const pIdentName = p.ident ? getIdentName(p.ident) : ('name' in p ? p.name : "");
                 if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
                   return { ...p, multipliers: {} };
                 }
@@ -670,9 +715,9 @@ export default function GameManager() {
 
             if (mySideIdRef.current) {
               if (!ident.startsWith(mySideIdRef.current)) {
-                setOppTeam(clearMultiplier);
-                setOppActives(clearMultiplier);
-              } else setMyTeam(clearMultiplier);
+                setOppTeam(clearMultiplier as (prev: OppPokemon[]) => OppPokemon[]);
+                setOppActives(clearMultiplier as (prev: OppPokemon[]) => OppPokemon[]);
+              } else setMyTeam(clearMultiplier as (prev: PokemonStatus[]) => PokemonStatus[]);
             }
           }
         } else if (trimmed.startsWith("|-enditem|")) {
@@ -680,21 +725,24 @@ export default function GameManager() {
           const ident = parts[2];
           const logIdentName = getIdentName(ident);
 
-          const applyUnburden = (prevTeam: any[]) =>
+          const applyUnburden = (prevTeam: (PokemonStatus | OppPokemon | null)[]) =>
             prevTeam.map((p) => {
-              const pIdentName = p.ident ? getIdentName(p.ident) : p.name;
+              if (!p) return p;
+              const pIdentName = p.ident ? getIdentName(p.ident) : ('name' in p ? p.name : "");
               if (logIdentName.startsWith(pIdentName) || pIdentName.startsWith(logIdentName)) {
-                const ability = (p.baseAbility || p.ability || p.details || "").toLowerCase();
+                const pe = p as PokemonStatus & { ability?: string };
+                const ability = (pe.baseAbility || pe.ability || p.details || "").toLowerCase();
+                const existing = (p as { multipliers?: Record<string, number> }).multipliers;
                 if (ability.includes("unburden") || ability.includes("곡예")) {
-                  return { ...p, multipliers: { ...p.multipliers, spe: 2 } };
+                  return { ...p, multipliers: { ...existing, spe: 2 } };
                 }
               }
               return p;
             });
 
           if (mySideIdRef.current) {
-            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyUnburden);
-            else setMyTeam(applyUnburden);
+            if (!ident.startsWith(mySideIdRef.current)) setOppTeam(applyUnburden as (prev: OppPokemon[]) => OppPokemon[]);
+            else setMyTeam(applyUnburden as (prev: PokemonStatus[]) => PokemonStatus[]);
           }
         }
 
@@ -726,14 +774,14 @@ export default function GameManager() {
     return () => {
       if (socket.current) socket.current.disconnect();
     };
-  }, [isDataLoaded]);
+  }, [isDataLoaded, resetBattleState]);
 
   // Actions
   const createRoom = (settings: RoomSettings) => socket.current && socket.current.emit("create-room", settings);
   const joinRoom = (roomId: string) => socket.current && socket.current.emit("join-room", roomId);
   const requestRoomList = () => socket.current && socket.current.emit("request-room-list");
   const leaveRoom = () => {
-    socket.current && socket.current.emit("leave-room");
+    if (socket.current) socket.current.emit("leave-room");
     setPhase("lobby");
     setRoomData(null);
     roomDataRef.current = null;
@@ -743,7 +791,7 @@ export default function GameManager() {
 
   const submitTeam = (teamString: string, callback?: () => void) => {
     if (teamString.trim()) {
-      socket.current?.emit("set-team", teamString, (response: any) => {
+      socket.current?.emit("set-team", teamString, (response: { success?: boolean }) => {
         if (response?.success && callback) {
           callback();
         }
@@ -765,42 +813,6 @@ export default function GameManager() {
     }
     socket.current.emit("action", cmd);
     setSelectedAction({ type, index });
-  };
-
-  const resetBattleState = () => {
-    setWinner(null);
-    setLogs([]);
-    setMyTeam([]);
-    setActiveMoves([]);
-    setOppTeam([]);
-    setOppActive(null);
-    mySideIdRef.current = "";
-    pendingFormChangesRef.current = {};
-    setWeather(null);
-    setFieldConditions([]);
-    setMySideConditions([]);
-    setOppSideConditions([]);
-    setSelectedAction(null);
-    setCanMegaEvo(false);
-    setCanZMove(false);
-    setZMoves(null);
-    setIsMegaChecked(false);
-    setIsZMoveChecked(false);
-    setHasUsedMega(false);
-    setHasUsedZMove(false);
-    // Doubles 상태 초기화
-    setOppActives([]);
-    setActiveMovesBySlot([[], []]);
-    setDoublesActions([null, null]);
-    setDoublesSelectedActions([null, null]);
-    setFocusedSlot(0);
-    setForceSwitch([]);
-    setActiveSlotCount(1);
-    setCanMegaEvoBySlot([false, false]);
-    setCanZMoveBySlot([false, false]);
-    setZMovesBySlot([null, null]);
-    setIsMegaCheckedBySlot([false, false]);
-    setIsZMoveCheckedBySlot([false, false]);
   };
 
   const sendDoubleAction = (slot: number, cmd: string) => {
@@ -890,7 +902,7 @@ export default function GameManager() {
       {phase === "room" && roomData && (
         <RoomPhase
           roomData={roomData}
-          socketId={socket.current ? socket.current.id : ""}
+          socketId={socketId}
           onLeave={leaveRoom}
           onSubmitTeam={submitTeam}
           onToggleReady={toggleReady}

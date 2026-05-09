@@ -45,7 +45,7 @@ export interface Pokemon {
  * @param jsonData 파싱할 원본 JSON 배열
  * @returns Pokemon 객체 배열
  */
-export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
+export const parsePokemonTeam = (jsonData: Record<string, unknown>[]): Pokemon[] => {
   return jsonData.map((data): Pokemon => {
     // 1. 기본 필드 할당
     const species_eng = data.species_eng;
