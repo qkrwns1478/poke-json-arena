@@ -45,31 +45,31 @@ export interface Pokemon {
  * @param jsonData 파싱할 원본 JSON 배열
  * @returns Pokemon 객체 배열
  */
-export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
+export const parsePokemonTeam = (jsonData: Record<string, unknown>[]): Pokemon[] => {
   return jsonData.map((data): Pokemon => {
     // 1. 기본 필드 할당
-    const species_eng = data.species_eng;
-    const species_kor = data.species_kor;
-    const nickname = data.nickname || null;
-    const types = data.types || [];
-    const gender = data.gender || "무성";
-    const level = data.level || 50;
-    const nature = data.nature || "신중";
-    const ability = data.ability;
-    const item = data.item || null;
-    const moves = data.moves || [];
+    const species_eng = (data.species_eng as string) ?? "";
+    const species_kor = (data.species_kor as string) ?? "";
+    const nickname = (data.nickname as string | undefined) || undefined;
+    const types = (data.types as string[]) || [];
+    const gender = (data.gender as string) || "무성";
+    const level = (data.level as number) || 50;
+    const nature = (data.nature as string) || "신중";
+    const ability = (data.ability as string) ?? "";
+    const item = (data.item as string | null) || null;
+    const moves = (data.moves as string[]) || [];
 
-    const mega_ability = data.mega_ability;
-    const z_move = data.z_move;
-    const base_stats = data.base_stats;
-    const final_stats = data.final_stats;
-    const mega_base_stats = data.mega_base_stats;
-    const mega_final_stats = data.mega_final_stats;
-    const type_effectiveness = data.type_effectiveness;
+    const mega_ability = data.mega_ability as string | undefined;
+    const z_move = data.z_move as string | undefined;
+    const base_stats = data.base_stats as Stats;
+    const final_stats = data.final_stats as Stats;
+    const mega_base_stats = data.mega_base_stats as Stats | undefined;
+    const mega_final_stats = data.mega_final_stats as Stats | undefined;
+    const type_effectiveness = data.type_effectiveness as TypeEffectiveness;
 
     // IVs, EVs 디폴트값 처리
-    const IVs = data.IVs || { HP: 31, ATK: 31, DEF: 31, SpA: 31, SpD: 31, SPE: 31 };
-    const EVs = data.EVs || { HP: 0, ATK: 0, DEF: 0, SpA: 0, SpD: 0, SPE: 0 };
+    const IVs = (data.IVs as Stats) || { HP: 31, ATK: 31, DEF: 31, SpA: 31, SpD: 31, SPE: 31 };
+    const EVs = (data.EVs as Stats) || { HP: 0, ATK: 0, DEF: 0, SpA: 0, SpD: 0, SPE: 0 };
 
     // 2. PSformat 생성을 위한 영문 번역
     // const species_eng = trKorToEng(species_kor, "POKEMON");
@@ -126,7 +126,7 @@ export const parsePokemonTeam = (jsonData: any[]): Pokemon[] => {
     return {
       species_eng,
       species_kor,
-      nickname,
+      nickname: nickname || undefined,
       types,
       gender,
       level,

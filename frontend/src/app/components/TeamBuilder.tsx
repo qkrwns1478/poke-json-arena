@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useMemo, useCallback, Fragment } from 'react';
 import Link from 'next/link';
 import { Generations } from '@smogon/calc';
 import { ArrowLeft, Download, Plus, Trash2, Edit2, X } from 'lucide-react';
@@ -24,8 +24,6 @@ const TYPE_COLORS: Record<string, string> = {
   '바위': 'bg-stone-500', '고스트': 'bg-purple-700', '드래곤': 'bg-violet-600',
   '악': 'bg-slate-700', '강철': 'bg-slate-400 text-slate-900', '페어리': 'bg-pink-400 text-slate-900',
 };
-
-const ALL_TYPES_KOR = Object.values(TYPE_ENG_TO_KOR);
 
 // ─── Nature modifiers ──────────────────────────────────────────────────────────
 
@@ -221,8 +219,12 @@ function SpeciesCombobox({
 }) {
   const [input, setInput] = useState(value);
   const [open, setOpen] = useState(false);
+  const [prevValue, setPrevValue] = useState(value);
 
-  useEffect(() => { setInput(value); }, [value]);
+  if (prevValue !== value) {
+    setPrevValue(value);
+    setInput(value);
+  }
 
   const suggestions = useMemo(() => {
     if (!input) return [];
@@ -538,7 +540,7 @@ export default function TeamBuilder() {
       setTeam(prev => [...prev, entry]);
     }
     setForm({ ...DEFAULT_FORM });
-  }, [buildEntry, editingIdx, team.length]);
+  }, [buildEntry, editingIdx]);
 
   const handleEdit = useCallback((idx: number) => {
     const p = team[idx];

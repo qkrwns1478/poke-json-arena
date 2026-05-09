@@ -4,7 +4,7 @@ import cors from "cors";
 import { Server } from "socket.io";
 import { BattleStreams, Teams, Dex } from "@pkmn/sim";
 import { applyDisguisePatch } from "./patches/disguisePatch.js";
-import { customData } from "./customData.js"
+import { customData } from "./data/customData.js"
 
 for (const [id, data] of Object.entries(customData)) {
   Dex.data.Pokedex[id] = data;
@@ -448,6 +448,11 @@ app.get("/api/custom-pokemon", (req, res) => {
   res.json(customData);
 });
 
-server.listen(3001, () => {
-  console.log("Battle Server running on port 3001");
-});
+// 환경변수가 'test'가 아닐 때만 3001 포트에서 서버 실행
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(3001, () => {
+    console.log("Battle Server running on port 3001");
+  });
+}
+
+export { app, server, io };

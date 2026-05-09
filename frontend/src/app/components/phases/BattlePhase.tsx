@@ -242,7 +242,7 @@ export default function BattlePhase(props: Props) {
   const currentZMoves = isDoubles ? (zMovesBySlot[focusedSlot] ?? null) : zMoves;
   const currentIsMegaChecked = isDoubles ? (isMegaCheckedBySlot[focusedSlot] ?? false) : isMegaChecked;
   const currentIsZMoveChecked = isDoubles ? (isZMoveCheckedBySlot[focusedSlot] ?? false) : isZMoveChecked;
-  const currentSlotAction = isDoubles ? doublesActions[focusedSlot] : selectedAction ? "set" : null;
+  const _currentSlotAction = isDoubles ? doublesActions[focusedSlot] : selectedAction ? "set" : null;
   const currentSlotSelectedAction = isDoubles ? doublesSelectedActions[focusedSlot] : selectedAction;
   const isForcedSwitch = isDoubles && forceSwitch.length > 0 && !!forceSwitch[focusedSlot];
 

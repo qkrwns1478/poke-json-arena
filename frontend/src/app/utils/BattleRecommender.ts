@@ -65,7 +65,7 @@ function buildSmogonPokemon(
       level,
       ability: abilityEng,
       item: itemEng,
-      boosts: boosts as any,
+      boosts: boosts as Record<string, number>,
     });
   } catch {
     return null;
@@ -123,9 +123,18 @@ interface SwitchEval {
   speed: number;
 }
 
+interface MoveDataDrawback {
+  accuracy?: number | boolean;
+  recoil?: unknown;
+  hasCrashDamage?: boolean;
+  mindBlownRecoil?: boolean;
+  self?: { boosts?: Record<string, number> };
+  flags?: { recharge?: unknown; charge?: unknown };
+}
+
 function calculateDrawbackScore(moveEng: string): number {
   let score = 0;
-  const moveData = GEN.moves.get(toID(moveEng)) as any;
+  const moveData = GEN.moves.get(toID(moveEng)) as MoveDataDrawback | undefined;
   if (!moveData) return 0;
 
   if (typeof moveData.accuracy === "number" && moveData.accuracy < 100) {
@@ -137,8 +146,8 @@ function calculateDrawbackScore(moveEng: string): number {
 
   if (moveData.self?.boosts) {
     const drops = Object.values(moveData.self.boosts)
-      .filter((v: any) => v < 0)
-      .reduce((a: any, b: any) => a + b, 0) as number;
+      .filter((v) => v < 0)
+      .reduce((a, b) => a + b, 0);
     score += Math.abs(drops) * 15;
   }
 
@@ -242,7 +251,7 @@ export function recommendBattleAction(
   myTeam: PokemonStatus[],
   oppActive: OppPokemon,
   activeMoves: MoveData[],
-  oppTeam: OppPokemon[] = [],
+  _oppTeam: OppPokemon[] = [],
   mechanics?: {
     canMegaEvo: boolean;
     canZMove: boolean;
@@ -268,7 +277,7 @@ export function recommendBattleAction(
   const mySmogon = buildSmogonPokemon(myName, myLevel, myActive.baseAbility, myActive.item, myActive.boosts);
 
   const oppName = oppActive.name.trim();
-  const oppKor = getPokeKor(oppName);
+  const _oppKor = getPokeKor(oppName);
   const oppHpPct = parseCurrentHpPct(oppActive.condition);
   const oppLevel = parseLevel(oppActive.details);
   const oppSmogon = buildSmogonPokemon(oppName, oppLevel, undefined, undefined, oppActive.boosts);
@@ -319,7 +328,7 @@ export function recommendBattleAction(
     .sort((a, b) => a.incomingMaxPct - b.incomingMaxPct);
 
   const bestSwitch = benchEvals[0];
-  let subRecommendation = "";
+  const subRecommendation = "";
 
   // ----------------------------------------------------
   // 메가/Z기술 판단
@@ -482,7 +491,7 @@ export function recommendBattleAction(
   if (damagingMoves.length > 0) {
     const bestMove = damagingMoves[0];
     const mName = bestMove.smogonMove.name;
-    let reasonText = `현재 데미지 기대치(${bestMove.minPct.toFixed(0)}~${bestMove.maxPct.toFixed(0)}%) 대비 리스크가 적은 ${p이가(getMoveKor(mName))} 가장 효율적입니다.`;
+    const reasonText = `현재 데미지 기대치(${bestMove.minPct.toFixed(0)}~${bestMove.maxPct.toFixed(0)}%) 대비 리스크가 적은 ${p이가(getMoveKor(mName))} 가장 효율적입니다.`;
     return {
       action_type: "move",
       parameter: mName,

@@ -2,9 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bot, Loader2, MessageSquare, X } from "lucide-react";
-import { Generations, calculate, Move } from "@smogon/calc";
-import { createPokemon } from "@/app/utils/PokemonFactory";
-import { trKorToEng, trEngToKor } from "@/app/utils/Translator";
+import { trEngToKor } from "@/app/utils/Translator";
 import { RoomData, PokemonStatus, OppPokemon, MoveData } from "@/app/types/battle";
 import { recommendBattleAction } from "@/app/utils/BattleRecommender";
 
@@ -48,32 +46,6 @@ export default function ChatInterface({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
-
-  const isDamageZero = (moveNameKor: string, attacker: PokemonStatus, defender: OppPokemon): boolean => {
-    try {
-      const gen = Generations.get(9);
-
-      const attackerName = attacker.details.split(",")[0].trim();
-      const defenderName = defender.name.trim();
-
-      const moveEng = trKorToEng(moveNameKor.trim(), "MOVES") || moveNameKor.trim();
-
-      const smogonAttacker = createPokemon(gen, attackerName, { level: 50 });
-      const smogonDefender = createPokemon(gen, defenderName, { level: 50 });
-      const attackMove = new Move(gen, moveEng);
-
-      const result = calculate(gen, smogonAttacker, smogonDefender, attackMove);
-
-      const damages = result.damage;
-      if (typeof damages === "number") {
-        return damages === 0;
-      }
-      return Math.max(...(damages as number[])) === 0;
-    } catch (error) {
-      console.error("[Smogon Calc Error] 데미지 계산 중 오류 발생:", error);
-      return false;
-    }
-  };
 
   const handleRequest = async (promptMsg: string, hiddenContext: string, retryCount = 0) => {
     if (loading) return;
@@ -124,15 +96,11 @@ export default function ChatInterface({
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
       }
-    } catch (error) {
+    } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "네트워크 오류가 발생했습니다." }]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const buildSelectionContext = () => {
-    return `규칙: ${roomData?.settings?.format}마리 선택\n상대 팀: ${oppFullTeam?.join(", ")}\n내 팀: ${myFullTeam?.join(", ")}`;
   };
 
   const buildEntryContext = () => {

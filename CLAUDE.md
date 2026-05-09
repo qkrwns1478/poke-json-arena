@@ -1,6 +1,8 @@
 @AGENTS.md
 
 - .env 파일은 절대 커밋하지 마세요.
-- 작업 완료 후 작업 내역을 `/log/claude_YYYYMMDDHHMMSS_XXX.md` 파일에 작성해주세요.
+- 모든 작업을 완료한 후 작업 내역을 `/log/claude_YYYYMMDDHHMMSS_XXX.md` 파일에 작성해주세요.
   - `YYYYMMDDHHMMSS`는 작업 완료 시간입니다. (예: 2026.04.19 18:53:11 → `20260419185311`)
   - `XXX`는 작업 내역입니다. (예: `DISGUISE_BUG_FIX`)
+  - 로그 Markdown 파일은 Session 당 하나만 생성하세요.
+  - 사용자가 기존 세션에서 추가로 작업을 요청한 경우, 추가 작업 내용을 별도의 로그 파일 생성 없이 기존 로그 파일에 이어서 작성해주세요.

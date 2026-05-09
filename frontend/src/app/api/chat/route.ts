@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     let parsedReply: unknown;
     try {
       parsedReply = JSON.parse(reply);
-    } catch (e) {
+    } catch {
       console.error("Groq JSON parse error. Raw reply:", reply);
       return NextResponse.json(
         { error: "모델 응답을 JSON으로 해석하지 못했습니다." },
